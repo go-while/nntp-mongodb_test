@@ -166,18 +166,21 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 		switch caseToTest {
 		case "delete":
 			delreqs++
-			log.Printf("add #%d to Mongo_Delete_queue=%d/%d", delreqs, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
+			log.Printf("Add #%d to Mongo_Delete_queue=%d/%d", delreqs, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
 			mongostorage.Mongo_Delete_queue <- messageIDHash
 
 		case "read":
 			readreqs++
-			log.Printf("add #%d to Mongo_Reader_queue=%d/%d", readreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
+			log.Printf("Add #%d to Mongo_Reader_queue=%d/%d", readreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
 			// test additional not existant hash with this read request
-			hash2 := "none2"
-			hash3 := "none3"
+			//hash2 := "none2"
+			//hash3 := "none3"
+			// retchan is a buffered channel with a capacity of 1 to store slices of pointers to Mongostorage.MongoArticle objects.
+			// It is used to send the retrieved articles back to the caller when performing a read operation.
 			retchan := make(chan []*mongostorage.MongoArticle, 1)
 			readreq := mongostorage.MongoReadRequest{
-				Msgidhashes: []string{messageIDHash, hash2, hash3},
+				//Msgidhashes: []string{messageIDHash, hash2, hash3},
+				Msgidhashes: []string{messageIDHash},
 				RetChan:     retchan,
 			}
 			mongostorage.Mongo_Reader_queue <- readreq
@@ -185,11 +188,11 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 			timeout := time.After(time.Duration(mongostorage.DefaultMongoTimeout + 1))
 			select {
 			case <-timeout:
-				log.Printf("readreq.retchan request timed out")
+				log.Printf("Error readreq.retchan request timed out")
 				break
 			case articles, ok := <-retchan:
 				if !ok {
-					log.Printf("readreq.retchan has been closed")
+					log.Printf("INFO readreq.retchan has been closed")
 				}
 				if len(articles) == 0 {
 					log.Printf("Error testCase: 'read' empty reply from retchan hash='%s'", article.MessageIDHash)
@@ -246,7 +249,6 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 					} // for article := range articles
 				} // end if len(articles)
 			} // end select
-			//timeout = nil
 
 		case "no-compression":
 			// Inserts the article into MongoDB without compression
