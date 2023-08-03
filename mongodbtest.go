@@ -181,7 +181,6 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 				RetChan:     retchan,
 			}
 			mongostorage.Mongo_Reader_queue <- readreq
-			time.Sleep(time.Second / 10)
 			log.Printf("waiting for reply on RetChan q=%d", len(mongostorage.Mongo_Reader_queue))
 			//timeout := time.After(time.Duration(mongostorage.DefaultMongoTimeout*2))
 			select {
