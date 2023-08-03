@@ -45,13 +45,15 @@ func main() {
 	}
 	use_format := "wireformat" // or: fileformat
 	testCases := [][]string{}
-	testRun00 := []string{"delete", "gzip", "read", "delete"}
-	testRun01 := []string{"delete", "zlib", "read", "delete"}
-	testRun02 := []string{"delete", "no-compression", "read", "delete"}
+	testRun00 := []string{"delete", "no-compression", "read", "delete"}
+	testRun01 := []string{"delete", "gzip", "read", "delete"}
+	testRun02 := []string{"delete", "zlib", "read", "delete"}
 	//testRun1 := []string{"delete", "no-compression", "read", "delete", "gzip", "read", "delete", "zlib", "read"}
 	//testRun2 := []string{"delete", "read", "delete", "read"}
 	//testRun3 := []string{"delete", "read", "no-compression", "read", "read", "read"}
 	//testRun4 := []string{"read", "delete", "no-compression", "read", "read", "delete", "read"}
+	//testCases = append(testCases, testRun00)
+	//testCases = append(testCases, testRun01)
 	//testCases = append(testCases, testRun02)
 	testCases = append(testCases, testRun00, testRun01, testRun02)
 	//testCases = append(testCases, testRun00, testRun01, testRun02, testRun1, testRun2, testRun3, testRun4)
@@ -179,6 +181,8 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 				RetChan:     retchan,
 			}
 			mongostorage.Mongo_Reader_queue <- readreq
+			time.Sleep(time.Second / 10)
+			log.Printf("waiting for reply on RetChan q=%d", len(mongostorage.Mongo_Reader_queue))
 			//timeout := time.After(time.Duration(mongostorage.DefaultMongoTimeout*2))
 			select {
 			case articles, ok := <-retchan:
@@ -200,6 +204,7 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 									log.Printf("Error GzipUncompress Head returned err: %v", err)
 									continue
 								} else {
+									log.Printf("OK GzipUncompressed Head")
 									article.Head = uncompressedHead
 								}
 
@@ -207,6 +212,7 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 									log.Printf("Error GzipUncompress Body returned err: %v", err)
 									continue
 								} else {
+									log.Printf("OK GzipUncompressed Body")
 									article.Body = uncompressedBody
 								}
 
@@ -215,6 +221,7 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 									log.Printf("Error ZlibUncompress Head returned err: %v", err)
 									continue
 								} else {
+									log.Printf("OK ZlibUncompressed Head")
 									article.Head = uncompressedHead
 								}
 
@@ -222,6 +229,7 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 									log.Printf("Error ZlibUncompress Body returned err: %v", err)
 									continue
 								} else {
+									log.Printf("OK ZlibUncompressed Body")
 									article.Body = uncompressedBody
 								}
 
