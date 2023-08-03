@@ -181,9 +181,12 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 				RetChan:     retchan,
 			}
 			mongostorage.Mongo_Reader_queue <- readreq
-			log.Printf("waiting for reply on RetChan q=%d", len(mongostorage.Mongo_Reader_queue))
-			//timeout := time.After(time.Duration(mongostorage.DefaultMongoTimeout*2))
+			log.Printf("read waiting for reply on RetChan q=%d", len(mongostorage.Mongo_Reader_queue))
+			timeout := time.After(time.Duration(mongostorage.DefaultMongoTimeout + 1))
 			select {
+			case <-timeout:
+				log.Printf("readreq.retchan request timed out")
+				break
 			case articles, ok := <-retchan:
 				if !ok {
 					log.Printf("readreq.retchan has been closed")
@@ -240,14 +243,8 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 							not_found++
 							log.Printf("testCase: 'read' not_found=%d/%d hash=%s a.found=%t", not_found, len(articles), article.MessageIDHash, article.Found)
 						}
-					}
-				}
-				/*
-				   case <- timeout:
-				       log.Printf("readreq.retchan request timed out")
-
-				       break
-				*/
+					} // for article := range articles
+				} // end if len(articles)
 			} // end select
 			//timeout = nil
 
