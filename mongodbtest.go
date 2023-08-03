@@ -45,15 +45,15 @@ func main() {
 	}
 	use_format := "wireformat" // or: fileformat
 	testCases := [][]string{}
-	//testRun00 := []string{"delete", "gzip", "read", "delete"}
-	//testRun01 := []string{"delete", "zlib", "read", "delete"}
+	testRun00 := []string{"delete", "gzip", "read", "delete"}
+	testRun01 := []string{"delete", "zlib", "read", "delete"}
 	testRun02 := []string{"delete", "no-compression", "read", "delete"}
 	//testRun1 := []string{"delete", "no-compression", "read", "delete", "gzip", "read", "delete", "zlib", "read"}
 	//testRun2 := []string{"delete", "read", "delete", "read"}
 	//testRun3 := []string{"delete", "read", "no-compression", "read", "read", "read"}
 	//testRun4 := []string{"read", "delete", "no-compression", "read", "read", "delete", "read"}
-	testCases = append(testCases, testRun02)
-	//testCases = append(testCases, testRun00, testRun01, testRun02)
+	//testCases = append(testCases, testRun02)
+	testCases = append(testCases, testRun00, testRun01, testRun02)
 	//testCases = append(testCases, testRun00, testRun01, testRun02, testRun1, testRun2, testRun3, testRun4)
 	if validTestCase && testCase != "" {
 		log.Printf("Running '%s' test case...", testCase)
@@ -108,6 +108,7 @@ func hashMessageID(messageID string) string {
 // logging information for each step of the process.
 //
 // The 'caseToTest' parameter determines the behavior of the function as follows:
+// - "read": Articles are read from the MongoDB collection based on the given MessageIDHash.
 // - "no-compression": Articles are inserted without any compression.
 // - "gzip": Articles are compressed using gzip before insertion.
 // - "zlib": Articles are compressed using zlib before insertion.
