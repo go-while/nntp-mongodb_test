@@ -66,15 +66,15 @@ func main() {
 	TESTmongoDatabaseName := "nntp_TEST" // mongosh: use nntp_TEST; db.articles.drop();
 	// load mongodb storage
 	/*
-	delQueue := mongostorage.DefaultDelQueue
-	delWorker := mongostorage.DefaultDelWorker
-	delBatch := mongostorage.DefaultDeleteBatchSize
-	insQueue := mongostorage.DefaultInsQueue
-	insWorker := mongostorage.DefaultInsWorker
-	insBatch := mongostorage.DefaultInsertBatchSize
-	getQueue := mongostorage.DefaultGetQueue
-	getWorker := mongostorage.DefaultGetWorker
-	mongoTimeout := mongostorage.DefaultMongoTimeout
+		delQueue := mongostorage.DefaultDelQueue
+		delWorker := mongostorage.DefaultDelWorker
+		delBatch := mongostorage.DefaultDeleteBatchSize
+		insQueue := mongostorage.DefaultInsQueue
+		insWorker := mongostorage.DefaultInsWorker
+		insBatch := mongostorage.DefaultInsertBatchSize
+		getQueue := mongostorage.DefaultGetQueue
+		getWorker := mongostorage.DefaultGetWorker
+		mongoTimeout := mongostorage.DefaultMongoTimeout
 	*/
 
 	delQueue := 1000
@@ -102,7 +102,7 @@ func main() {
 			test_retchan := make(chan struct{}, NumIterations)
 			TestArticles(NumIterations, caseToTest, use_format, checkAfterInsert, test_retchan)
 			log.Printf("end test %d/%d: case '%s'", c, len(testCases), caseToTest)
-			switch(caseToTest) {
+			switch caseToTest {
 			case "read":
 			case "delete":
 			case "no-compression":
