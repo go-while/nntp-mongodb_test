@@ -10,7 +10,7 @@ Before running the mongodbtest.go script, make sure you have the following prere
 
 Go Programming Language: Install Go from the official website (https://golang.org/dl/) and set up your Go environment.
 
-MongoDB: Ensure you have a running MongoDB server accessible at the specified URI (mongoURI).
+MongoDB: Ensure you have a running MongoDB server accessible at the specified URI (MongoURI).
 
 The MongoDB connection URI should include the necessary authentication details and the address of the MongoDB server.
 
