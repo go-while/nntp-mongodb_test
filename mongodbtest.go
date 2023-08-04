@@ -22,11 +22,11 @@ func main() {
 	// Define command-line flags
 	var flagTestCase string
 	var flagNumIterations int
-	var flagRandomUpDN bool
+	var flagMongoWorker_RandomUpDN bool
 
 	flag.StringVar(&flagTestCase, "test-case", "", "Test cases: delete|read|no-compression|gzip|zlib")
 	flag.IntVar(&flagNumIterations, "test-num", 0, "Test Num: Any number you want")
-	flag.BoolVar(&flagRandomUpDN, "randomUpDN", false, "set true to test randomUpDN() function")
+	flag.BoolVar(&flagMongoWorker_RandomUpDN, "randomUpDN", false, "set true to test randomUpDN() function")
 	flag.Parse()
 
 	// Define supported test cases
@@ -91,8 +91,8 @@ func main() {
 	testAfterInsert := false
 	mongostorage.Load_MongoDB(mongostorage.DefaultMongoUri, TESTmongoDatabaseName, mongostorage.DefaultMongoCollection, mongoTimeout, delWorker, delQueue, delBatch, insWorker, insQueue, insBatch, getQueue, getWorker, testAfterInsert)
 
-	if flagRandomUpDN {
-		go mongostorage.RandomUpDN()
+	if flagMongoWorker_RandomUpDN {
+		go mongostorage.MongoWorker_RandomUpDN()
 	}
 
 	c := 0
