@@ -59,37 +59,28 @@ func main() {
 		testCases = [][]string{}
 		testCases = append(testCases, []string{testCase})
 	}
-	checkAfterInsert := false
-	TESTmongoDatabaseName := "nntp_TEST" // mongosh: use nntp_TEST; db.articles.drop();
+	TESTMongoDatabaseName := "nntp_TEST" // mongosh: use nntp_TEST; db.articles.drop();
+
 	// load mongodb storage
-	/*
-		delQueue := mongostorage.DefaultDelQueue
-		delWorker := mongostorage.DefaultDelWorker
-		delBatch := mongostorage.DefaultDeleteBatchSize
-		insQueue := mongostorage.DefaultInsQueue
-		insWorker := mongostorage.DefaultInsWorker
-		insBatch := mongostorage.DefaultInsertBatchSize
-		getQueue := mongostorage.DefaultGetQueue
-		getWorker := mongostorage.DefaultGetWorker
-		mongoTimeout := mongostorage.DefaultMongoTimeout
-	*/
+	cfg := mongostorage.GetDefaultMongoStorageConfig()
 
-	delQueue := 1000
-	delWorker := 4
-	delBatch := 10000
+	cfg.DelQueue = 1000
+	cfg.DelWorker = 4
+	cfg.DelBatch = 10000
 
-	insQueue := 1000
-	insWorker := 4
-	insBatch := 10000
+	cfg.InsQueue = 1000
+	cfg.InsWorker = 4
+	cfg.InsBatch = 10000
+	cfg.TestAfterInsert = false
 
-	getQueue := 4
-	getWorker := 4
+	cfg.GetQueue = 4
+	cfg.GetWorker = 4
 
-	mongoTimeout := mongostorage.DefaultMongoTimeout
+	cfg.MongoURI = ""
+	cfg.MongoDatabaseName = TESTMongoDatabaseName
+	//cfg.MongoTimeout := int64(86400)
 
-	//mongoTimeout := int64(86400)
-	testAfterInsert := false
-	mongostorage.Load_MongoDB(mongostorage.DefaultMongoUri, TESTmongoDatabaseName, mongostorage.DefaultMongoCollection, mongoTimeout, delWorker, delQueue, delBatch, insWorker, insQueue, insBatch, getQueue, getWorker, testAfterInsert)
+	mongostorage.Load_MongoDB(&cfg)
 
 	if flagRandomUpDN {
 		go mongostorage.MongoWorker_UpDN_Random()
@@ -103,7 +94,7 @@ func main() {
 				log.Printf("flagNumIterations=%d", flagNumIterations)
 				log.Printf("run test %d/%d: case '%s'", c, len(testCases), caseToTest)
 				test_retchan := make(chan struct{}, flagNumIterations)
-				TestArticles(flagNumIterations, caseToTest, use_format, checkAfterInsert, test_retchan)
+				TestArticles(flagNumIterations, caseToTest, use_format, cfg.TestAfterInsert, test_retchan)
 				log.Printf("end test %d/%d: case '%s'", c, len(testCases), caseToTest)
 				switch caseToTest {
 				case "read":
