@@ -100,6 +100,7 @@ func main() {
 		for _, caseToTest := range testRun {
 			c++
 			if flagNumIterations > 0 {
+				log.Printf("flagNumIterations=%d", flagNumIterations)
 				log.Printf("run test %d/%d: case '%s'", c, len(testCases), caseToTest)
 				test_retchan := make(chan struct{}, flagNumIterations)
 				TestArticles(flagNumIterations, caseToTest, use_format, checkAfterInsert, test_retchan)
