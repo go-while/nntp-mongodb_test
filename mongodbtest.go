@@ -65,24 +65,50 @@ func main() {
 	checkAfterInsert := false
 	TESTmongoDatabaseName := "nntp_TEST" // mongosh: use nntp_TEST; db.articles.drop();
 	// load mongodb storage
+	/*
 	delQueue := mongostorage.DefaultDelQueue
 	delWorker := mongostorage.DefaultDelWorker
+	delBatch := mongostorage.DefaultDeleteBatchSize
 	insQueue := mongostorage.DefaultInsQueue
 	insWorker := mongostorage.DefaultInsWorker
+	insBatch := mongostorage.DefaultInsertBatchSize
 	getQueue := mongostorage.DefaultGetQueue
 	getWorker := mongostorage.DefaultGetWorker
 	mongoTimeout := mongostorage.DefaultMongoTimeout
+	*/
+
+	delQueue := 1000
+	delWorker := 4
+	delBatch := 10000
+
+	insQueue := 1000
+	insWorker := 4
+	insBatch := 100
+
+	getQueue := 4
+	getWorker := 4
+
+	mongoTimeout := mongostorage.DefaultMongoTimeout
+
 	//mongoTimeout := int64(86400)
 	testAfterInsert := false
-	mongostorage.Load_MongoDB(mongostorage.DefaultMongoUri, TESTmongoDatabaseName, mongostorage.DefaultMongoCollection, mongoTimeout, delWorker, delQueue, insWorker, insQueue, getQueue, getWorker, testAfterInsert)
+	mongostorage.Load_MongoDB(mongostorage.DefaultMongoUri, TESTmongoDatabaseName, mongostorage.DefaultMongoCollection, mongoTimeout, delWorker, delQueue, delBatch, insWorker, insQueue, insBatch, getQueue, getWorker, testAfterInsert)
 
 	c := 0
 	for _, testRun := range testCases {
 		for _, caseToTest := range testRun {
 			c++
 			log.Printf("run test %d/%d: case '%s'", c, len(testCases), caseToTest)
-			TestArticles(NumIterations, caseToTest, use_format, checkAfterInsert)
+			test_retchan := make(chan struct{}, NumIterations)
+			TestArticles(NumIterations, caseToTest, use_format, checkAfterInsert, test_retchan)
 			log.Printf("end test %d/%d: case '%s'", c, len(testCases), caseToTest)
+			switch(caseToTest) {
+			case "read":
+			case "delete":
+			case "no-compression":
+			case "gzip":
+			case "zlib":
+			}
 			time.Sleep(time.Second * 5)
 		}
 	}
@@ -95,6 +121,7 @@ func main() {
 	log.Printf("Quit mongodbtest")
 } // end func main
 
+// function written by AI.
 func hashMessageID(messageID string) string {
 	hash := sha256.New()
 	hash.Write([]byte(messageID))
@@ -120,7 +147,8 @@ func hashMessageID(messageID string) string {
 // the size after compression (if applicable), and whether the article has been inserted
 // successfully. It also handles deleting articles based on the 'delete' case, and
 // reports any errors that occur during the insertion or deletion process.
-func TestArticles(NumIterations int, caseToTest string, use_format string, checkAfterInsert bool) {
+// function partly written by AI.
+func TestArticles(NumIterations int, caseToTest string, use_format string, checkAfterInsert bool, testRetchan chan struct{}) {
 	insreqs, delreqs, readreqs := 0, 0, 0
 	for i := 1; i <= NumIterations; i++ {
 
@@ -147,9 +175,10 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 
 		// Create the Article.
 		article := mongostorage.MongoArticle{
-			MessageIDHash: messageIDHash,
-			MessageID:     messageID,
+			MessageIDHash: &messageIDHash,
+			MessageID:     &messageID,
 		}
+
 		switch use_format {
 		case "wireformat":
 			article.Head = []byte(strings.Join(headerLines, "\r\n")) // wireformat
@@ -158,6 +187,7 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 			article.Head = []byte(strings.Join(headerLines, "\n")) // fileformat
 			article.Body = []byte(strings.Join(bodyLines, "\n"))   // fileformat
 		}
+
 		if len(article.Head) == 0 || len(article.Body) == 0 {
 			log.Printf("IGNORE empty head=%d body=%d ", len(article.Head), len(article.Body))
 			continue
@@ -166,12 +196,12 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 		switch caseToTest {
 		case "delete":
 			delreqs++
-			log.Printf("Add #%d to Mongo_Delete_queue=%d/%d", delreqs, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
+			//log.Printf("Add #%d to Mongo_Delete_queue=%d/%d", delreqs, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
 			mongostorage.Mongo_Delete_queue <- messageIDHash
 
 		case "read":
 			readreqs++
-			log.Printf("Add #%d to Mongo_Reader_queue=%d/%d", readreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
+			//log.Printf("Add #%d to Mongo_Reader_queue=%d/%d", readreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
 			// test additional not existant hash with this read request
 			//hash2 := "none2"
 			//hash3 := "none3"
@@ -180,22 +210,22 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 			retchan := make(chan []*mongostorage.MongoArticle, 1)
 			readreq := mongostorage.MongoReadRequest{
 				//Msgidhashes: []string{messageIDHash, hash2, hash3},
-				Msgidhashes: []string{messageIDHash},
+				Msgidhashes: []*string{&messageIDHash},
 				RetChan:     retchan,
 			}
 			mongostorage.Mongo_Reader_queue <- readreq
 			log.Printf("read waiting for reply on RetChan q=%d", len(mongostorage.Mongo_Reader_queue))
-			timeout := time.After(time.Duration(mongostorage.DefaultMongoTimeout + 1))
+			//timeout := time.After(time.Duration(mongostorage.DefaultMongoTimeout + 1))
 			select {
-			case <-timeout:
-				log.Printf("Error readreq.retchan request timed out")
-				break
+			//case <-timeout:
+			//	log.Printf("Error readreq.retchan request timed out")
+			//	break
 			case articles, ok := <-retchan:
 				if !ok {
 					log.Printf("INFO readreq.retchan has been closed")
 				}
 				if len(articles) == 0 {
-					log.Printf("Error testCase: 'read' empty reply from retchan hash='%s'", article.MessageIDHash)
+					log.Printf("Error testCase: 'read' empty reply from retchan hash='%s'", *article.MessageIDHash)
 				} else {
 					got_read := 0
 					not_found := 0
@@ -241,10 +271,10 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 							} // end switch encoder
 
 							got_read++
-							log.Printf("testCase: 'read' got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", got_read, len(articles), string(article.Head), string(article.Body), article.MessageID, article.MessageIDHash, article.Found, article.Enc)
+							log.Printf("testCase: 'read' got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", got_read, len(articles), string(article.Head), string(article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
 						} else {
 							not_found++
-							log.Printf("testCase: 'read' not_found=%d/%d hash=%s a.found=%t", not_found, len(articles), article.MessageIDHash, article.Found)
+							log.Printf("testCase: 'read' not_found=%d/%d hash=%s a.found=%t", not_found, len(articles), *article.MessageIDHash, article.Found)
 						}
 					} // for article := range articles
 				} // end if len(articles)
@@ -253,8 +283,10 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 		case "no-compression":
 			// Inserts the article into MongoDB without compression
 			insreqs++
-			log.Printf("add #%d to Mongo_Insert_queue=%d/%d", insreqs, len(mongostorage.Mongo_Insert_queue), cap(mongostorage.Mongo_Insert_queue))
+			//log.Printf("Add #%d to Mongo_Insert_queue=%d/%d", insreqs, len(mongostorage.Mongo_Insert_queue), cap(mongostorage.Mongo_Insert_queue))
 			//log.Printf("insert (caseToTest=%s): %s", caseToTest, article.MessageIDHash)
+			article.Headsize = len(article.Head)
+			article.Bodysize = len(article.Body)
 			article.Enc = mongostorage.NOCOMP
 			mongostorage.Mongo_Insert_queue <- article
 
@@ -271,13 +303,14 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 				log.Printf("Error GzipCompress Body returned err: %v", err)
 				continue
 			}
-			log.Printf("Head raw=%d gzip=%d | Body raw=%d gzip=%d", len(article.Head), len(compressedHead), len(article.Body), len(compressedBody))
+			//log.Printf("Head raw=%d gzip=%d Body raw=%d gzip=%d msghash=%s", len(article.Head), len(compressedHead), len(article.Body), len(compressedBody), *article.MessageIDHash)
+			//log.Printf("", )
 			article.Head = compressedHead
 			article.Headsize = len(compressedHead)
 			article.Body = compressedBody
 			article.Bodysize = len(compressedBody)
 			article.Enc = mongostorage.GZIP_enc
-			//log.Printf("insert (caseToTest=%s): %s", caseToTest, article.MessageIDHash)
+			//log.Printf("insert (caseToTest=%s): %s", caseToTest, )
 			mongostorage.Mongo_Insert_queue <- article
 			//mongostorage.Mongo_Delete_queue <- article.MessageIDHash
 
@@ -294,14 +327,13 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 				log.Printf("Error ZlibCompress Body returned err='%v'", err)
 				continue
 			}
-			log.Printf("Head raw=%d zlib=%d", len(article.Head), len(compressedHead))
-			log.Printf("Body raw=%d zlib=%d", len(article.Body), len(compressedBody))
+			//log.Printf("Head raw=%d gzip=%d Body raw=%d gzip=%d msghash=%s", len(article.Head), len(compressedHead), len(article.Body), len(compressedBody), *article.MessageIDHash)
 			article.Head = compressedHead
 			article.Headsize = len(compressedHead)
 			article.Body = compressedBody
 			article.Bodysize = len(compressedBody)
 			article.Enc = mongostorage.ZLIB_enc
-			//log.Printf("insert (caseToTest=%s): %s", caseToTest, article.MessageIDHash)
+			//log.Printf("insert (caseToTest=%s): %s", caseToTest, *article.MessageIDHash)
 			mongostorage.Mongo_Insert_queue <- article
 			//mongostorage.Mongo_Delete_queue <- article.MessageIDHash
 
