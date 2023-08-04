@@ -83,7 +83,7 @@ func main() {
 
 	insQueue := 1000
 	insWorker := 4
-	insBatch := 100
+	insBatch := 10000
 
 	getQueue := 4
 	getWorker := 4
