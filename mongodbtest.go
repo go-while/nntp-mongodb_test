@@ -14,8 +14,7 @@ import (
 )
 
 var (
-	NUM_CPUS      int = 4
-	NumIterations int = 10
+	NUM_CPUS int = 4
 )
 
 func main() {
@@ -23,10 +22,11 @@ func main() {
 	// Define command-line flags
 	var flagTestCase string
 	var flagNumIterations int
+	var flagRandomUpDN bool
 
 	flag.StringVar(&flagTestCase, "test-case", "", "Test cases: delete|read|no-compression|gzip|zlib")
 	flag.IntVar(&flagNumIterations, "test-num", 0, "Test Num: Any number you want")
-
+	flag.BoolVar(&flagRandomUpDN, "randomUpDN", false, "set true to test randomUpDN() function")
 	flag.Parse()
 
 	// Define supported test cases
@@ -39,9 +39,6 @@ func main() {
 			validTestCase = true
 			break
 		}
-	}
-	if flagNumIterations > 0 {
-		NumIterations = flagNumIterations
 	}
 	use_format := "wireformat" // or: fileformat
 	testCases := [][]string{}
@@ -94,20 +91,26 @@ func main() {
 	testAfterInsert := false
 	mongostorage.Load_MongoDB(mongostorage.DefaultMongoUri, TESTmongoDatabaseName, mongostorage.DefaultMongoCollection, mongoTimeout, delWorker, delQueue, delBatch, insWorker, insQueue, insBatch, getQueue, getWorker, testAfterInsert)
 
+	if flagRandomUpDN {
+		go mongostorage.RandomUpDN()
+	}
+
 	c := 0
 	for _, testRun := range testCases {
 		for _, caseToTest := range testRun {
 			c++
-			log.Printf("run test %d/%d: case '%s'", c, len(testCases), caseToTest)
-			test_retchan := make(chan struct{}, NumIterations)
-			TestArticles(NumIterations, caseToTest, use_format, checkAfterInsert, test_retchan)
-			log.Printf("end test %d/%d: case '%s'", c, len(testCases), caseToTest)
-			switch caseToTest {
-			case "read":
-			case "delete":
-			case "no-compression":
-			case "gzip":
-			case "zlib":
+			if flagNumIterations > 0 {
+				log.Printf("run test %d/%d: case '%s'", c, len(testCases), caseToTest)
+				test_retchan := make(chan struct{}, flagNumIterations)
+				TestArticles(flagNumIterations, caseToTest, use_format, checkAfterInsert, test_retchan)
+				log.Printf("end test %d/%d: case '%s'", c, len(testCases), caseToTest)
+				switch caseToTest {
+				case "read":
+				case "delete":
+				case "no-compression":
+				case "gzip":
+				case "zlib":
+				}
 			}
 			time.Sleep(time.Second * 5)
 		}
