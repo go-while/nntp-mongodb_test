@@ -104,7 +104,9 @@ func main() {
 		for i:=1; i <= flagTestPar; i++ {
 			testCases = nil
 			RandomStringSlice(testChaos)
-			testCases = append(testCases, testChaos)
+			testCases = append(testCases, testChaos, testChaos, testChaos)
+			RandomStringSlices(testCases)
+			log.Printf("run %d/%d testCases='%v'", i, flagTestPar, testCases)
 			for _, testRun := range testCases {
 				for _, caseToTest := range testRun {
 					if flagNumIterations > 0 {
@@ -113,8 +115,8 @@ func main() {
 					}
 				}
 			}
-
 		}
+
 	} else {
 		for _, testRun := range testCases {
 			for _, caseToTest := range testRun {
@@ -161,21 +163,42 @@ func hashMessageID(messageID string) string {
 	return hex.EncodeToString(hash.Sum(nil))
 } // end func hashMessageID
 
-func LockPar() {
-	lockparchan <- struct{}{}
+func LockPar(caseToTest *string) {
+forever:
+	for {
+		select {
+			case lockparchan <- struct{}{}:
+				//log.Printf("OK LockPar %s", *caseToTest)
+				break forever
+			default:
+				time.Sleep(time.Second)
+				//log.Printf("Wait LockPar %s", *caseToTest)
+		}
+	}
+} // end func LockPar
 
-}
-func UnLockPar() {
+func UnLockPar(caseToTest *string) {
 	<-lockparchan
 	pardonechan <- struct{}{}
-}
+	//log.Printf("UnLockPar %s", *caseToTest)
+} //end func UnLockPar
 
 func RandomStringSlice(slice []string) {
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(slice), func(i, j int) {
 		slice[i], slice[j] = slice[j], slice[i]
 	})
-}
+} // end func RandomStringSlice
+
+
+func RandomStringSlices(slices [][]string) {
+	for _, slice := range slices {
+		rand.Seed(time.Now().UnixNano())
+		rand.Shuffle(len(slice), func(i, j int) {
+			slice[i], slice[j] = slice[j], slice[i]
+		})
+	}
+} // end func RandomStringSlices
 
 // TestArticles is responsible for inserting articles into the MongoDB collection
 // based on the specified test case. It generates example articles and performs different
@@ -198,8 +221,9 @@ func RandomStringSlice(slice []string) {
 // reports any errors that occur during the insertion or deletion process.
 // function partly written by AI.
 func TestArticles(NumIterations uint64, caseToTest string, use_format string, checkAfterInsert bool) {
-	LockPar()
-	defer UnLockPar()
+	time.Sleep(time.Second)
+	LockPar(&caseToTest)
+	defer UnLockPar(&caseToTest)
 	log.Printf("run test: case '%s'", caseToTest)
 	defer log.Printf("end test: case '%s'", caseToTest)
 
