@@ -14,7 +14,9 @@ import (
 )
 
 var (
-	NUM_CPUS int = 4
+	NUM_CPUS    int = 4
+	lockparchan chan struct{}
+	pardonechan chan struct{}
 )
 
 func main() {
@@ -23,11 +25,15 @@ func main() {
 	var flagTestCase string
 	var flagNumIterations int
 	var flagRandomUpDN bool
+	var flagTestPar int
 
 	flag.StringVar(&flagTestCase, "test-case", "", "Test cases: delete|read|no-compression|gzip|zlib")
-	flag.IntVar(&flagNumIterations, "test-num", 0, "Test Num: Any number you want")
-	flag.BoolVar(&flagRandomUpDN, "randomUpDN", false, "set true to test randomUpDN() function")
+	flag.IntVar(&flagNumIterations, "test-num", 0, "Test Num: Any number >= 0 you want")
+	flag.IntVar(&flagTestPar, "test-par", 1, "Test Parallel: Any number >= 1 you want")
+	flag.BoolVar(&flagRandomUpDN, "randomUpDN", false, "set flag '-randomUpDN' to test randomUpDN() function")
 	flag.Parse()
+	lockparchan = make(chan struct{}, flagTestPar)
+	pardonechan = make(chan struct{}, flagTestPar)
 
 	// Define supported test cases
 	supportedTestCases := []string{"delete", "read", "no-compression", "gzip", "zlib"}
@@ -42,9 +48,9 @@ func main() {
 	}
 	use_format := "wireformat" // or: fileformat
 	testCases := [][]string{}
-	testRun00 := []string{"delete", "no-compression", "read", "delete"}
-	testRun01 := []string{"delete", "gzip", "read", "delete"}
-	testRun02 := []string{"delete", "zlib", "read", "delete"}
+	testRun00 := []string{"read", "delete", "no-compression", "read", "delete", "read"}
+	testRun01 := []string{"read", "delete", "gzip", "read", "delete", "read"}
+	testRun02 := []string{"read", "delete", "zlib", "read", "delete", "read"}
 	//testRun1 := []string{"delete", "no-compression", "read", "delete", "gzip", "read", "delete", "zlib", "read"}
 	//testRun2 := []string{"delete", "read", "delete", "read"}
 	//testRun3 := []string{"delete", "read", "no-compression", "read", "read", "read"}
@@ -86,16 +92,16 @@ func main() {
 		go mongostorage.MongoWorker_UpDN_Random()
 	}
 
-	c := 0
 	for _, testRun := range testCases {
 		for _, caseToTest := range testRun {
-			c++
+			log.Printf("flagNumIterations=%d", flagNumIterations)
 			if flagNumIterations > 0 {
-				log.Printf("flagNumIterations=%d", flagNumIterations)
-				log.Printf("run test %d/%d: case '%s'", c, len(testCases), caseToTest)
 				test_retchan := make(chan struct{}, flagNumIterations)
-				TestArticles(flagNumIterations, caseToTest, use_format, cfg.TestAfterInsert, test_retchan)
-				log.Printf("end test %d/%d: case '%s'", c, len(testCases), caseToTest)
+				if flagTestPar > 0 {
+					go TestArticles(flagNumIterations, caseToTest, use_format, cfg.TestAfterInsert, test_retchan)
+				} else {
+					TestArticles(flagNumIterations, caseToTest, use_format, cfg.TestAfterInsert, test_retchan)
+				}
 				switch caseToTest {
 				case "read":
 				case "delete":
@@ -107,6 +113,15 @@ func main() {
 			time.Sleep(time.Second * 5)
 		}
 	}
+
+	for {
+		if len(pardonechan) == flagTestPar {
+			break
+		}
+		log.Printf("Waiting for Test to complete: %d/%d", len(pardonechan), flagTestPar)
+		time.Sleep(time.Second)
+	}
+
 	time.Sleep(time.Second * 5)
 	log.Printf("Closing mongodbtest")
 	close(mongostorage.Mongo_Delete_queue)
@@ -122,6 +137,15 @@ func hashMessageID(messageID string) string {
 	hash.Write([]byte(messageID))
 	return hex.EncodeToString(hash.Sum(nil))
 } // end func hashMessageID
+
+func LockPar() {
+	lockparchan <- struct{}{}
+
+}
+func UnLockPar() {
+	<-lockparchan
+	pardonechan <- struct{}{}
+}
 
 // TestArticles is responsible for inserting articles into the MongoDB collection
 // based on the specified test case. It generates example articles and performs different
@@ -144,6 +168,11 @@ func hashMessageID(messageID string) string {
 // reports any errors that occur during the insertion or deletion process.
 // function partly written by AI.
 func TestArticles(NumIterations int, caseToTest string, use_format string, checkAfterInsert bool, testRetchan chan struct{}) {
+	LockPar()
+	defer UnLockPar()
+	log.Printf("run test: case '%s'", caseToTest)
+	defer log.Printf("end test: case '%s'", caseToTest)
+
 	insreqs, delreqs, readreqs := 0, 0, 0
 	for i := 1; i <= NumIterations; i++ {
 
@@ -209,7 +238,7 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 				RetChan:     retchan,
 			}
 			mongostorage.Mongo_Reader_queue <- readreq
-			log.Printf("read waiting for reply on RetChan q=%d", len(mongostorage.Mongo_Reader_queue))
+			//log.Printf("read waiting for reply on RetChan q=%d", len(mongostorage.Mongo_Reader_queue))
 			//timeout := time.After(time.Duration(mongostorage.DefaultMongoTimeout + 1))
 			select {
 			//case <-timeout:
