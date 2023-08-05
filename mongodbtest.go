@@ -8,6 +8,7 @@ import (
 	"github.com/go-while/nntp-mongodb-storage"
 	//"github.com/go-while/nntp-storage"
 	"log"
+	"math/rand"
 	"runtime"
 	"strings"
 	"time"
@@ -34,6 +35,7 @@ func main() {
 	flag.BoolVar(&flagRandomUpDN, "randomUpDN", false, "set flag '-randomUpDN' to test randomUpDN() function")
 	flag.Parse()
 	flagNumIterations = uint64(iflagNumIterations)
+	log.Printf("flagNumIterations=%d", flagNumIterations)
 	lockparchan = make(chan struct{}, flagTestPar)
 	pardonechan = make(chan struct{}, flagTestPar)
 
@@ -53,6 +55,7 @@ func main() {
 	testRun00 := []string{"read", "delete", "no-compression", "read", "delete", "read"}
 	testRun01 := []string{"read", "delete", "gzip", "read", "delete", "read"}
 	testRun02 := []string{"read", "delete", "zlib", "read", "delete", "read"}
+	testChaos := []string{"read", "delete", "zlib", "gzip", "no-compression"}
 	//testRun1 := []string{"delete", "no-compression", "read", "delete", "gzip", "read", "delete", "zlib", "read"}
 	//testRun2 := []string{"delete", "read", "delete", "read"}
 	//testRun3 := []string{"delete", "read", "no-compression", "read", "read", "read"}
@@ -94,26 +97,32 @@ func main() {
 		go mongostorage.MongoWorker_UpDN_Random()
 	}
 	target := uint64(0)
-	for _, testRun := range testCases {
-		for _, caseToTest := range testRun {
-			log.Printf("flagNumIterations=%d", flagNumIterations)
-			if flagNumIterations > 0 {
-				target += flagNumIterations
-				test_retchan := make(chan struct{}, flagNumIterations)
-				if flagTestPar > 0 {
-					go TestArticles(flagNumIterations, caseToTest, use_format, cfg.TestAfterInsert, test_retchan)
-				} else {
-					TestArticles(flagNumIterations, caseToTest, use_format, cfg.TestAfterInsert, test_retchan)
-				}
-				switch caseToTest {
-				case "read":
-				case "delete":
-				case "no-compression":
-				case "gzip":
-				case "zlib":
+
+
+	if flagTestPar > 0 {
+
+		for i:=1; i <= flagTestPar; i++ {
+			testCases = nil
+			testCases = append(testCases, RandomStringSlice(testChaos), RandomStringSlice(testChaos), RandomStringSlice(testChaos))
+			for _, testRun := range testCases {
+				for _, caseToTest := range testRun {
+					if flagNumIterations > 0 {
+						target += flagNumIterations
+						go TestArticles(flagNumIterations, caseToTest, use_format, cfg.TestAfterInsert)
+					}
 				}
 			}
-			//time.Sleep(time.Second * 5)
+
+		}
+	} else {
+		for _, testRun := range testCases {
+			for _, caseToTest := range testRun {
+				if flagNumIterations > 0 {
+					target += flagNumIterations
+					TestArticles(flagNumIterations, caseToTest, use_format, cfg.TestAfterInsert)
+				}
+				//time.Sleep(time.Second * 5)
+			}
 		}
 	}
 
@@ -160,6 +169,14 @@ func UnLockPar() {
 	pardonechan <- struct{}{}
 }
 
+func RandomStringSlice(slice []string) []string {
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(slice), func(i, j int) {
+		slice[i], slice[j] = slice[j], slice[i]
+	})
+	return slice
+}
+
 // TestArticles is responsible for inserting articles into the MongoDB collection
 // based on the specified test case. It generates example articles and performs different
 // actions based on the 'caseToTest' parameter, which determines the compression method
@@ -180,7 +197,7 @@ func UnLockPar() {
 // successfully. It also handles deleting articles based on the 'delete' case, and
 // reports any errors that occur during the insertion or deletion process.
 // function partly written by AI.
-func TestArticles(NumIterations uint64, caseToTest string, use_format string, checkAfterInsert bool, testRetchan chan struct{}) {
+func TestArticles(NumIterations uint64, caseToTest string, use_format string, checkAfterInsert bool) {
 	LockPar()
 	defer UnLockPar()
 	log.Printf("run test: case '%s'", caseToTest)
