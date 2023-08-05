@@ -124,7 +124,7 @@ wait:
 			r := mongostorage.Counter.Get("Did_mongoWorker_Reader")
 			i := mongostorage.Counter.Get("Did_mongoWorker_Insert")
 			d := mongostorage.Counter.Get("Did_mongoWorker_Delete")
-			sum := r+i+d
+			sum := r + i + d
 			if sum == target {
 				log.Printf("Test completed: %d/%d r=%d i=%d d=%d target=%d", len(pardonechan), flagTestPar, r, i, d, target)
 				break wait
