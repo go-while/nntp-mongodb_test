@@ -103,7 +103,7 @@ func main() {
 
 		for i:=1; i <= flagTestPar; i++ {
 			testCases = nil
-			testCases = append(testCases, RandomStringSlice(testChaos), RandomStringSlice(testChaos), RandomStringSlice(testChaos))
+			testCases = append(testCases, RandomStringSlice(testChaos))
 			for _, testRun := range testCases {
 				for _, caseToTest := range testRun {
 					if flagNumIterations > 0 {
