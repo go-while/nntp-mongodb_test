@@ -103,7 +103,8 @@ func main() {
 
 		for i:=1; i <= flagTestPar; i++ {
 			testCases = nil
-			testCases = append(testCases, RandomStringSlice(testChaos))
+			RandomStringSlice(testChaos)
+			testCases = append(testCases, testChaos)
 			for _, testRun := range testCases {
 				for _, caseToTest := range testRun {
 					if flagNumIterations > 0 {
@@ -169,12 +170,11 @@ func UnLockPar() {
 	pardonechan <- struct{}{}
 }
 
-func RandomStringSlice(slice []string) []string {
+func RandomStringSlice(slice []string) {
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(slice), func(i, j int) {
 		slice[i], slice[j] = slice[j], slice[i]
 	})
-	return slice
 }
 
 // TestArticles is responsible for inserting articles into the MongoDB collection
@@ -204,6 +204,8 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 	defer log.Printf("end test: case '%s'", caseToTest)
 
 	insreqs, delreqs, readreqs := 0, 0, 0
+	t_get, t_ins, t_del, t_nf := 0, 0, 0, 0
+
 	for i := uint64(1); i <= NumIterations; i++ {
 
 		// Example data to store in the Article.
@@ -247,10 +249,15 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 			continue
 		}
 
+
 		switch caseToTest {
 		case "delete":
+			t_del++
 			delreqs++
-			//log.Printf("Add #%d to Mongo_Delete_queue=%d/%d", delreqs, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
+			if delreqs >= 1000 {
+				delreqs = 0
+				log.Printf("Add #%d/%d to Mongo_Delete_queue=%d/%d", t_del, NumIterations, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
+			}
 			mongostorage.Mongo_Delete_queue <- messageIDHash
 
 		case "read":
@@ -293,7 +300,7 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 									log.Printf("Error GzipUncompress Head returned err: %v", err)
 									continue
 								} else {
-									log.Printf("OK GzipUncompressed Head")
+									//log.Printf("OK GzipUncompressed Head")
 									article.Head = uncompressedHead
 								}
 
@@ -301,7 +308,7 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 									log.Printf("Error GzipUncompress Body returned err: %v", err)
 									continue
 								} else {
-									log.Printf("OK GzipUncompressed Body")
+									//log.Printf("OK GzipUncompressed Body")
 									article.Body = uncompressedBody
 								}
 
@@ -310,7 +317,7 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 									log.Printf("Error ZlibUncompress Head returned err: %v", err)
 									continue
 								} else {
-									log.Printf("OK ZlibUncompressed Head")
+									//log.Printf("OK ZlibUncompressed Head")
 									article.Head = uncompressedHead
 								}
 
@@ -318,18 +325,27 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 									log.Printf("Error ZlibUncompress Body returned err: %v", err)
 									continue
 								} else {
-									log.Printf("OK ZlibUncompressed Body")
+									//log.Printf("OK ZlibUncompressed Body")
 									article.Body = uncompressedBody
 								}
 
 							} // end switch encoder
 
 							got_read++
+							t_get++
 							//log.Printf("testCase: 'read' got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", got_read, len(articles), string(article.Head), string(article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
-							log.Printf("testCase: 'read' got_read=%d/%d hash=%s a.found=%t enc=%d", got_read, len(articles), *article.MessageIDHash, article.Found, article.Enc)
+							//
+							if got_read >= 1000 {
+								log.Printf("testCase: 'read' got_read=%d/%d", t_get, len(articles), *article.MessageIDHash, article.Found, article.Enc)
+								got_read = 0
+							}
 						} else {
+							t_nf++
 							not_found++
-							log.Printf("testCase: 'read' not_found=%d/%d hash=%s a.found=%t", not_found, len(articles), *article.MessageIDHash, article.Found)
+							if not_found >= 1000 {
+								not_found = 0
+								log.Printf("testCase: 'read' not_found=%d/%d hash=%s a.found=%t", t_nf, len(articles), *article.MessageIDHash, article.Found)
+							}
 						}
 					} // for article := range articles
 				} // end if len(articles)
@@ -338,6 +354,7 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 		case "no-compression":
 			// Inserts the article into MongoDB without compression
 			insreqs++
+			t_ins++
 			//log.Printf("Add #%d to Mongo_Insert_queue=%d/%d", insreqs, len(mongostorage.Mongo_Insert_queue), cap(mongostorage.Mongo_Insert_queue))
 			//log.Printf("insert (caseToTest=%s): %s", caseToTest, article.MessageIDHash)
 			article.Headsize = len(article.Head)
@@ -347,6 +364,8 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 
 		case "gzip":
 			// Inserts the article into MongoDB with gzip compression
+			insreqs++
+			t_ins++
 			var err error
 			var compressedHead []byte
 			var compressedBody []byte
@@ -371,6 +390,8 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 
 		case "zlib":
 			// Inserts the article into MongoDB with zlib compression
+			insreqs++
+			t_ins++
 			var err error
 			var compressedHead []byte
 			var compressedBody []byte
