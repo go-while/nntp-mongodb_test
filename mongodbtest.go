@@ -23,15 +23,17 @@ func main() {
 	runtime.GOMAXPROCS(NUM_CPUS)
 	// Define command-line flags
 	var flagTestCase string
-	var flagNumIterations int
+	var iflagNumIterations int
+	var flagNumIterations uint64
 	var flagRandomUpDN bool
 	var flagTestPar int
 
 	flag.StringVar(&flagTestCase, "test-case", "", "Test cases: delete|read|no-compression|gzip|zlib")
-	flag.IntVar(&flagNumIterations, "test-num", 0, "Test Num: Any number >= 0 you want")
+	flag.IntVar(&iflagNumIterations, "test-num", 0, "Test Num: Any number >= 0 you want")
 	flag.IntVar(&flagTestPar, "test-par", 1, "Test Parallel: Any number >= 1 you want")
 	flag.BoolVar(&flagRandomUpDN, "randomUpDN", false, "set flag '-randomUpDN' to test randomUpDN() function")
 	flag.Parse()
+	flagNumIterations = uint64(iflagNumIterations)
 	lockparchan = make(chan struct{}, flagTestPar)
 	pardonechan = make(chan struct{}, flagTestPar)
 
@@ -91,11 +93,12 @@ func main() {
 	if flagRandomUpDN {
 		go mongostorage.MongoWorker_UpDN_Random()
 	}
-
+	target := uint64(0)
 	for _, testRun := range testCases {
 		for _, caseToTest := range testRun {
 			log.Printf("flagNumIterations=%d", flagNumIterations)
 			if flagNumIterations > 0 {
+				target += flagNumIterations
 				test_retchan := make(chan struct{}, flagNumIterations)
 				if flagTestPar > 0 {
 					go TestArticles(flagNumIterations, caseToTest, use_format, cfg.TestAfterInsert, test_retchan)
@@ -110,20 +113,30 @@ func main() {
 				case "zlib":
 				}
 			}
-			time.Sleep(time.Second * 5)
+			//time.Sleep(time.Second * 5)
 		}
 	}
 
+wait:
 	for {
+		time.Sleep(time.Second)
 		if len(pardonechan) == flagTestPar {
-			break
+			r := mongostorage.Counter.Get("Did_mongoWorker_Reader")
+			i := mongostorage.Counter.Get("Did_mongoWorker_Insert")
+			d := mongostorage.Counter.Get("Did_mongoWorker_Delete")
+			sum := r+i+d
+			if sum == target {
+				log.Printf("Test completed: %d/%d r=%d i=%d d=%d target=%d", len(pardonechan), flagTestPar, r, i, d, target)
+				break wait
+			}
+			log.Printf("Waiting for Test to complete: %d/%d r=%d i=%d d=%d target=%d/%d", len(pardonechan), flagTestPar, r, i, d, sum, target)
+			continue wait
 		}
 		log.Printf("Waiting for Test to complete: %d/%d", len(pardonechan), flagTestPar)
-		time.Sleep(time.Second)
-	}
 
-	time.Sleep(time.Second * 5)
+	} // end for
 	log.Printf("Closing mongodbtest")
+	time.Sleep(time.Second)
 	close(mongostorage.Mongo_Delete_queue)
 	close(mongostorage.Mongo_Insert_queue)
 	close(mongostorage.Mongo_Reader_queue)
@@ -167,14 +180,14 @@ func UnLockPar() {
 // successfully. It also handles deleting articles based on the 'delete' case, and
 // reports any errors that occur during the insertion or deletion process.
 // function partly written by AI.
-func TestArticles(NumIterations int, caseToTest string, use_format string, checkAfterInsert bool, testRetchan chan struct{}) {
+func TestArticles(NumIterations uint64, caseToTest string, use_format string, checkAfterInsert bool, testRetchan chan struct{}) {
 	LockPar()
 	defer UnLockPar()
 	log.Printf("run test: case '%s'", caseToTest)
 	defer log.Printf("end test: case '%s'", caseToTest)
 
 	insreqs, delreqs, readreqs := 0, 0, 0
-	for i := 1; i <= NumIterations; i++ {
+	for i := uint64(1); i <= NumIterations; i++ {
 
 		// Example data to store in the Article.
 		messageID := fmt.Sprintf("<example-%d@example.com>", i)
@@ -295,7 +308,8 @@ func TestArticles(NumIterations int, caseToTest string, use_format string, check
 							} // end switch encoder
 
 							got_read++
-							log.Printf("testCase: 'read' got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", got_read, len(articles), string(article.Head), string(article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
+							//log.Printf("testCase: 'read' got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", got_read, len(articles), string(article.Head), string(article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
+							log.Printf("testCase: 'read' got_read=%d/%d hash=%s a.found=%t enc=%d", got_read, len(articles), *article.MessageIDHash, article.Found, article.Enc)
 						} else {
 							not_found++
 							log.Printf("testCase: 'read' not_found=%d/%d hash=%s a.found=%t", not_found, len(articles), *article.MessageIDHash, article.Found)
