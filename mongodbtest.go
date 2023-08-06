@@ -288,16 +288,18 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 		case "delete":
 			t_del++
 			delreqs++
-			/*
-				if delreqs >= 1000 {
-					delreqs = 0
-					log.Printf("Add #%d/%d to Mongo_Delete_queue=%d/%d", t_del, NumIterations, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
-				}
-			*/
+			if delreqs >= 1000 {
+				delreqs = 0
+				log.Printf("Add #%d/%d to Mongo_Delete_queue=%d/%d", t_del, NumIterations, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
+			}
 			mongostorage.Mongo_Delete_queue <- messageIDHash
 
 		case "read":
 			readreqs++
+			if readreqs >= 1000 {
+				readreqs = 0
+				log.Printf("testCase: 'read' t_get=%d t_nf=%d itrerations=%d", t_get, t_nf, NumIterations)
+			}
 			//log.Printf("Add #%d to Mongo_Reader_queue=%d/%d", readreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
 			// test additional not existant hash with this read request
 			hash2 := "none2"
@@ -360,14 +362,9 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 						} else {
 							t_nf++
 							not_found++
-
 							// DEBUG/VERBOSE log.Printf("testCase: 'read' t_nf=%d articles_not_found=%d/%d hash=%s a.found=%t", t_nf, not_found, len(articles), *article.MessageIDHash, article.Found)
 						}
 					} // for article := range articles
-					if readreqs >= 1000 {
-						readreqs = 0
-						log.Printf("testCase: 'read' t_get=%d t_nf=%d got_read=%d/%d", t_get, t_nf, got_read, len(articles))
-					}
 				} // end if len(articles)
 			} // end select
 
@@ -375,13 +372,14 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 			// Inserts the article into MongoDB without compression
 			insreqs++
 			t_ins++
+			if insreqs >= 1000 {
+				insreqs = 0
+				log.Printf("testCase: '%s' t_ins=%d iterations=%d", caseToTest, t_ins, NumIterations)
+			}
 			// DEBUG/VERBOSE log.Printf("caseToTest=%s Add #%d to Mongo_Insert_queue=%d/%d", caseToTest, insreqs, len(mongostorage.Mongo_Insert_queue), cap(mongostorage.Mongo_Insert_queue))
 			article.Enc = mongostorage.NOCOMP
 			mongostorage.Mongo_Insert_queue <- article
-			if insreqs >= 1000 {
-				insreqs = 0
-				log.Printf("testCase: '%s' t_ins=%d", caseToTest, t_ins)
-			}
+
 
 		case "gzip":
 			// Inserts the article into MongoDB with gzip compression
@@ -432,3 +430,9 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 	}
 } // end func TestArticles
 
+
+func logf(DEBUG bool, format string, a ...any) {
+	if DEBUG {
+		log.Printf(format, a...)
+	}
+} // end logf
