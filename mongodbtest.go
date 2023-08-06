@@ -348,23 +348,13 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 								}
 
 							} // end switch encoder
-
 							got_read++
 							t_get++
-							log.Printf("testCase: 'read' got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", got_read, len(articles), string(*article.Head), string(*article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
-							/*
-								if got_read >= 100 {
-									log.Printf("testCase: 'read' got_read=%d/%d", t_get, len(articles), *article.MessageIDHash, article.Found, article.Enc)
-									got_read = 0
-								}*/
+							log.Printf("testCase: 'read' t_get=%d got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", t_get, got_read, len(articles), string(*article.Head), string(*article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
 						} else {
 							t_nf++
 							not_found++
-							//log.Printf("testCase: 'read' not_found=%d/%d hash=%s a.found=%t", t_nf, len(articles), *article.MessageIDHash, article.Found)
-							if not_found >= 100 {
-								not_found = 0
-								log.Printf("testCase: 'read' not_found=%d len_articles=%d", t_nf, len(articles))
-							}
+							log.Printf("testCase: 'read' t_nf=%d articles_not_found=%d/%d hash=%s a.found=%t", t_nf, not_found, len(articles), *article.MessageIDHash, article.Found)
 						}
 					} // for article := range articles
 				} // end if len(articles)
