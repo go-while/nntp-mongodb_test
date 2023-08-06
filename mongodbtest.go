@@ -10,8 +10,13 @@ import (
 	"log"
 	"math/rand"
 	"runtime"
-	"strings"
 	"time"
+)
+
+const (
+	CR string = mongostorage.CR
+	LF string = mongostorage.LF
+	CRLF string = mongostorage.CRLF
 )
 
 var (
@@ -265,22 +270,8 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 			MessageID:     &messageID,
 		}
 
-		switch flagFormat {
-		case "wireformat":
-			head := []byte(strings.Join(headerLines, "\r\n")) // wireformat
-			body := []byte(strings.Join(bodyLines, "\r\n"))   // wireformat
-			article.Head = &head
-			article.Headsize = len(head)
-			article.Body = &body
-			article.Bodysize = len(body)
-		case "fileformat":
-			head := []byte(strings.Join(headerLines, "\n")) // fileformat
-			body := []byte(strings.Join(bodyLines, "\n"))   // fileformat
-			article.Head = &head
-			article.Headsize = len(head)
-			article.Body = &body
-			article.Bodysize = len(body)
-		}
+		article.Head, article.Headsize = mongostorage.Strings2Byte(flagFormat, headerLines)
+		article.Body, article.Bodysize = mongostorage.Strings2Byte(flagFormat, bodyLines)
 
 		if article.Head == nil || article.Body == nil {
 			log.Printf("IGNORE empty head=%v || body=%v ", article.Head, article.Body)
@@ -415,4 +406,3 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 	}
 } // end func TestArticles
 
-// EOF mongodbtest.go
