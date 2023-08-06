@@ -15,25 +15,29 @@ import (
 )
 
 var (
-	NUM_CPUS    int = 4
 	lockparchan chan struct{}
 	pardonechan chan struct{}
 )
 
 func main() {
-	runtime.GOMAXPROCS(NUM_CPUS)
+
 	// Define command-line flags
 	var flagTestCase string
 	var iflagNumIterations int
 	var flagNumIterations uint64
 	var flagRandomUpDN bool
 	var flagTestPar int
+	var flagNumCPU int
 
 	flag.StringVar(&flagTestCase, "test-case", "", "Test cases: delete|read|no-compression|gzip|zlib")
 	flag.IntVar(&iflagNumIterations, "test-num", 0, "Test Num: Any number >= 0 you want")
 	flag.IntVar(&flagTestPar, "test-par", 1, "Test Parallel: Any number >= 1 you want")
+	flag.IntVar(&flagNumCPU, "num-cpu", 0, "sets runtime.GOMAXPROCS")
 	flag.BoolVar(&flagRandomUpDN, "randomUpDN", false, "set flag '-randomUpDN' to test randomUpDN() function")
 	flag.Parse()
+	if flagNumCPU > 0 {
+		runtime.GOMAXPROCS(flagNumCPU)
+	}
 	flagNumIterations = uint64(iflagNumIterations)
 	log.Printf("flagNumIterations=%d", flagNumIterations)
 	lockparchan = make(chan struct{}, flagTestPar)
