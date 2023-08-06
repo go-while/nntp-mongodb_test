@@ -20,6 +20,7 @@ const (
 )
 
 var (
+	DEBUG       bool
 	lockparchan chan struct{}
 	pardonechan chan struct{}
 )
@@ -41,6 +42,7 @@ func main() {
 	flag.IntVar(&flagTestPar, "test-par", 1, "Test Parallel: Any number >= 1 you want")
 	flag.IntVar(&flagNumCPU, "num-cpu", 0, "sets runtime.GOMAXPROCS")
 	flag.BoolVar(&flagRandomUpDN, "randomUpDN", false, "set flag '-randomUpDN' to test randomUpDN() function")
+	flag.BoolVar(&DEBUG, "debug", false, "set flag '-debug' to enable 'logf() debugs")
 	flag.Parse()
 	if flagNumCPU > 0 {
 		runtime.GOMAXPROCS(flagNumCPU)
@@ -292,6 +294,7 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 				delreqs = 0
 				log.Printf("Add #%d/%d to Mongo_Delete_queue=%d/%d", t_del, NumIterations, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
 			}
+			logf(DEBUG, "Add #%d to Mongo_Delete_queue=%d/%d", readreqs, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
 			mongostorage.Mongo_Delete_queue <- messageIDHash
 
 		case "read":
@@ -300,7 +303,7 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 				readreqs = 0
 				log.Printf("testCase: 'read' t_get=%d t_nf=%d itrerations=%d", t_get, t_nf, NumIterations)
 			}
-			//log.Printf("Add #%d to Mongo_Reader_queue=%d/%d", readreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
+			logf(DEBUG, "Add #%d to Mongo_Reader_queue=%d/%d", readreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
 			// test additional not existant hash with this read request
 			hash2 := "none2"
 			hash3 := "none3"
@@ -312,13 +315,11 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 				//Msgidhashes: []*string{&messageIDHash},
 				RetChan:     retchan,
 			}
+
 			mongostorage.Mongo_Reader_queue <- readreq
 			//log.Printf("read waiting for reply on RetChan q=%d", len(mongostorage.Mongo_Reader_queue))
-			//timeout := time.After(time.Duration(mongostorage.DefaultMongoTimeout + 1))
+
 			select {
-			//case <-timeout:
-			//	log.Printf("Error readreq.retchan request timed out")
-			//	break
 			case articles, ok := <-retchan:
 				if !ok {
 					log.Printf("INFO readreq.retchan has been closed")
@@ -358,11 +359,11 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 							} // end switch encoder
 							got_read++
 							t_get++
-							// DEBUG/VERBOSE log.Printf("testCase: 'read' t_get=%d got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", t_get, got_read, len(articles), string(*article.Head), string(*article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
+							logf(DEBUG, "testCase: 'read' t_get=%d got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", t_get, got_read, len(articles), string(*article.Head), string(*article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
 						} else {
 							t_nf++
 							not_found++
-							// DEBUG/VERBOSE log.Printf("testCase: 'read' t_nf=%d articles_not_found=%d/%d hash=%s a.found=%t", t_nf, not_found, len(articles), *article.MessageIDHash, article.Found)
+							logf(DEBUG, "testCase: 'read' t_nf=%d articles_not_found=%d/%d hash=%s a.found=%t", t_nf, not_found, len(articles), *article.MessageIDHash, article.Found)
 						}
 					} // for article := range articles
 				} // end if len(articles)
@@ -374,9 +375,9 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 			t_ins++
 			if insreqs >= 1000 {
 				insreqs = 0
-				log.Printf("testCase: '%s' t_ins=%d iterations=%d", caseToTest, t_ins, NumIterations)
+				log.Printf("testCase: '%s' t_ins=%d/%d", caseToTest, t_ins, NumIterations)
 			}
-			// DEBUG/VERBOSE log.Printf("caseToTest=%s Add #%d to Mongo_Insert_queue=%d/%d", caseToTest, insreqs, len(mongostorage.Mongo_Insert_queue), cap(mongostorage.Mongo_Insert_queue))
+			logf(DEBUG, "caseToTest=%s Add #%d to Mongo_Insert_queue=%d/%d", caseToTest, t_ins, len(mongostorage.Mongo_Insert_queue), cap(mongostorage.Mongo_Insert_queue))
 			article.Enc = mongostorage.NOCOMP
 			mongostorage.Mongo_Insert_queue <- article
 
@@ -385,7 +386,7 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 			// Inserts the article into MongoDB with gzip compression
 			insreqs++
 			t_ins++
-			// DEBUG/VERBOSE log.Printf("caseToTest=%s BEFORE GZIP Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
+			logf(DEBUG, "caseToTest=%s BEFORE GZIP Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
 			if err := mongostorage.CompressData(article.Head, mongostorage.GZIP_enc); err != nil {
 				log.Printf("Error GzipCompress Head returned err: %v", err)
 				continue
@@ -394,7 +395,7 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 				log.Printf("Error GzipCompress Body returned err: %v", err)
 				continue
 			}
-			// DEBUG/VERBOSE log.Printf("caseToTest=%s AFTER GZIP Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
+			logf(DEBUG, "caseToTest=%s AFTER GZIP Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
 			article.Enc = mongostorage.GZIP_enc
 			mongostorage.Mongo_Insert_queue <- article
 			if insreqs >= 1000 {
@@ -406,7 +407,7 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 			// Inserts the article into MongoDB with zlib compression
 			insreqs++
 			t_ins++
-			// DEBUG/VERBOSE log.Printf("caseToTest=%s BEFORE ZLIB Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
+			logf(DEBUG, "caseToTest=%s BEFORE ZLIB Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
 			if err := mongostorage.CompressData(article.Head, mongostorage.ZLIB_enc); err != nil {
 				log.Printf("Error ZlibCompress Head returned err='%v'", err)
 				continue
@@ -415,9 +416,8 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 				log.Printf("Error ZlibCompress Body returned err='%v'", err)
 				continue
 			}
-			// DEBUG/VERBOSE log.Printf("caseToTest=%s AFTER ZLIB Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
+			logf(DEBUG, "caseToTest=%s AFTER ZLIB Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
 			article.Enc = mongostorage.ZLIB_enc
-			// log.Printf("insert (caseToTest=%s): %s", caseToTest, *article.MessageIDHash)
 			mongostorage.Mongo_Insert_queue <- article
 			if insreqs >= 1000 {
 				insreqs = 0
