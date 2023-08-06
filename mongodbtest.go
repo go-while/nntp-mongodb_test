@@ -75,17 +75,19 @@ func main() {
 	// load mongodb storage
 	cfg := mongostorage.GetDefaultMongoStorageConfig()
 
-	cfg.DelQueue = 1000
+	cfg.DelQueue = 4
 	cfg.DelWorker = 4
 	cfg.DelBatch = 10000
 
-	cfg.InsQueue = 1000
+	cfg.InsQueue = 4
 	cfg.InsWorker = 4
 	cfg.InsBatch = 10000
 	cfg.TestAfterInsert = false
 
 	cfg.GetQueue = 4
 	cfg.GetWorker = 4
+
+	cfg.FlushTimer = 2500
 
 	cfg.MongoURI = ""
 	cfg.MongoDatabaseName = TESTMongoDatabaseName
@@ -94,13 +96,11 @@ func main() {
 	mongostorage.Load_MongoDB(&cfg)
 
 	if flagRandomUpDN {
-		go mongostorage.MongoWorker_UpDN_Random()
+		go mongostorage.MongoWorker_UpDn_Random()
 	}
+
 	target := uint64(0)
-
-
 	if flagTestPar > 0 {
-
 		for i:=1; i <= flagTestPar; i++ {
 			testCases = nil
 			RandomStringSlice(testChaos)
@@ -113,10 +113,9 @@ func main() {
 						target += flagNumIterations
 						go TestArticles(flagNumIterations, caseToTest, use_format, cfg.TestAfterInsert)
 					}
-				}
-			}
-		}
-
+				} // end for
+			} // end for
+		} // end for
 	} else {
 		for _, testRun := range testCases {
 			for _, caseToTest := range testRun {
@@ -124,10 +123,9 @@ func main() {
 					target += flagNumIterations
 					TestArticles(flagNumIterations, caseToTest, use_format, cfg.TestAfterInsert)
 				}
-				//time.Sleep(time.Second * 5)
-			}
-		}
-	}
+			} //emd for
+		} // end for
+	} // end if flagTestPar
 
 wait:
 	for {
@@ -145,8 +143,8 @@ wait:
 			continue wait
 		}
 		log.Printf("Waiting for Test to complete: %d/%d", len(pardonechan), flagTestPar)
-
 	} // end for
+
 	log.Printf("Closing mongodbtest")
 	time.Sleep(time.Second)
 	close(mongostorage.Mongo_Delete_queue)
