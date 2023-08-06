@@ -28,8 +28,10 @@ func main() {
 	var flagRandomUpDN bool
 	var flagTestPar int
 	var flagNumCPU int
+	var flagFormat string
 
 	flag.StringVar(&flagTestCase, "test-case", "", "Test cases: delete|read|no-compression|gzip|zlib")
+	flag.StringVar(&flagFormat, "format", "wireformat", "[wireformat|fileformat]")
 	flag.IntVar(&iflagNumIterations, "test-num", 0, "Test Num: Any number >= 0 you want")
 	flag.IntVar(&flagTestPar, "test-par", 1, "Test Parallel: Any number >= 1 you want")
 	flag.IntVar(&flagNumCPU, "num-cpu", 0, "sets runtime.GOMAXPROCS")
@@ -54,7 +56,6 @@ func main() {
 			break
 		}
 	}
-	use_format := "wireformat" // or: fileformat
 	testCases := [][]string{}
 	testRun00 := []string{"read", "delete", "no-compression", "read", "delete", "read"}
 	testRun01 := []string{"read", "delete", "gzip", "read", "delete", "read"}
@@ -69,6 +70,8 @@ func main() {
 	//testCases = append(testCases, testRun02)
 	testCases = append(testCases, testRun00, testRun01, testRun02)
 	//testCases = append(testCases, testRun00, testRun01, testRun02, testRun1, testRun2, testRun3, testRun4)
+
+	// capture the flag
 	if validTestCase && testCase != "" {
 		log.Printf("Running '%s' test case...", testCase)
 		testCases = [][]string{}
@@ -105,6 +108,7 @@ func main() {
 
 	target := uint64(0)
 	if flagTestPar > 0 {
+		// Do Testing heavily in parallel running go routines doing randomized stuff from 'testChaos'
 		for i := 1; i <= flagTestPar; i++ {
 			testCases = nil
 			RandomStringSlice(testChaos)
@@ -115,17 +119,18 @@ func main() {
 				for _, caseToTest := range testRun {
 					if flagNumIterations > 0 {
 						target += flagNumIterations
-						go TestArticles(flagNumIterations, caseToTest, use_format, cfg.TestAfterInsert)
+						go TestArticles(flagNumIterations, caseToTest, flagFormat, cfg.TestAfterInsert)
 					}
 				} // end for
 			} // end for
 		} // end for
 	} else {
+		// single threaded test with defined 'testCases'
 		for _, testRun := range testCases {
 			for _, caseToTest := range testRun {
 				if flagNumIterations > 0 {
 					target += flagNumIterations
-					TestArticles(flagNumIterations, caseToTest, use_format, cfg.TestAfterInsert)
+					TestArticles(flagNumIterations, caseToTest, flagFormat, cfg.TestAfterInsert)
 				}
 			} //emd for
 		} // end for
@@ -221,7 +226,7 @@ func RandomStringSlices(slices [][]string) {
 // successfully. It also handles deleting articles based on the 'delete' case, and
 // reports any errors that occur during the insertion or deletion process.
 // function partly written by AI.
-func TestArticles(NumIterations uint64, caseToTest string, use_format string, checkAfterInsert bool) {
+func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, checkAfterInsert bool) {
 	time.Sleep(time.Second)
 	LockPar(&caseToTest)
 	defer UnLockPar(&caseToTest)
@@ -260,7 +265,7 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 			MessageID:     &messageID,
 		}
 
-		switch use_format {
+		switch flagFormat {
 		case "wireformat":
 			head := []byte(strings.Join(headerLines, "\r\n")) // wireformat
 			body := []byte(strings.Join(bodyLines, "\r\n"))   // wireformat
