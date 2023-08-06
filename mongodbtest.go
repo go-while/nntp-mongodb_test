@@ -294,14 +294,14 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 			readreqs++
 			//log.Printf("Add #%d to Mongo_Reader_queue=%d/%d", readreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
 			// test additional not existant hash with this read request
-			//hash2 := "none2"
-			//hash3 := "none3"
+			hash2 := "none2"
+			hash3 := "none3"
 			// retchan is a buffered channel with a capacity of 1 to store slices of pointers to Mongostorage.MongoArticle objects.
 			// It is used to send the retrieved articles back to the caller when performing a read operation.
 			retchan := make(chan []*mongostorage.MongoArticle, 1)
 			readreq := mongostorage.MongoReadRequest{
-				//Msgidhashes: []string{messageIDHash, hash2, hash3},
-				Msgidhashes: []*string{&messageIDHash},
+				Msgidhashes: []*string{&messageIDHash, &hash2, &hash3},
+				//Msgidhashes: []*string{&messageIDHash},
 				RetChan:     retchan,
 			}
 			mongostorage.Mongo_Reader_queue <- readreq
@@ -364,8 +364,7 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 			// Inserts the article into MongoDB without compression
 			insreqs++
 			t_ins++
-			//log.Printf("Add #%d to Mongo_Insert_queue=%d/%d", insreqs, len(mongostorage.Mongo_Insert_queue), cap(mongostorage.Mongo_Insert_queue))
-			//log.Printf("insert (caseToTest=%s): %s", caseToTest, article.MessageIDHash)
+			//log.Printf("caseToTest=%s Add #%d to Mongo_Insert_queue=%d/%d", caseToTest, insreqs, len(mongostorage.Mongo_Insert_queue), cap(mongostorage.Mongo_Insert_queue))
 			article.Enc = mongostorage.NOCOMP
 			mongostorage.Mongo_Insert_queue <- article
 
@@ -382,7 +381,6 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 				continue
 			}
 			article.Enc = mongostorage.GZIP_enc
-			//log.Printf("insert (caseToTest=%s): %s", caseToTest, )
 			mongostorage.Mongo_Insert_queue <- article
 
 		case "zlib":
