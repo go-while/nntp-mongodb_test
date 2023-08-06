@@ -55,7 +55,7 @@ func main() {
 	testRun00 := []string{"read", "delete", "no-compression", "read", "delete", "read"}
 	testRun01 := []string{"read", "delete", "gzip", "read", "delete", "read"}
 	testRun02 := []string{"read", "delete", "zlib", "read", "delete", "read"}
-	testChaos := []string{"read", "delete", "zlib", "gzip", "no-compression"}
+	testChaos := []string{"read", "delete", "zlib", "gzip", "no-compression", "delete", "delete", "delete"}
 	//testRun1 := []string{"delete", "no-compression", "read", "delete", "gzip", "read", "delete", "zlib", "read"}
 	//testRun2 := []string{"delete", "read", "delete", "read"}
 	//testRun3 := []string{"delete", "read", "no-compression", "read", "read", "read"}
@@ -77,17 +77,17 @@ func main() {
 
 	cfg.DelQueue = 4
 	cfg.DelWorker = 4
-	cfg.DelBatch = 10000
+	cfg.DelBatch = 100
 
 	cfg.InsQueue = 4
 	cfg.InsWorker = 4
-	cfg.InsBatch = 10000
+	cfg.InsBatch = 1000
 	cfg.TestAfterInsert = false
 
 	cfg.GetQueue = 4
 	cfg.GetWorker = 4
 
-	cfg.FlushTimer = 2500
+	cfg.FlushTimer = 1000
 
 	cfg.MongoURI = ""
 	cfg.MongoDatabaseName = TESTMongoDatabaseName
@@ -101,7 +101,7 @@ func main() {
 
 	target := uint64(0)
 	if flagTestPar > 0 {
-		for i:=1; i <= flagTestPar; i++ {
+		for i := 1; i <= flagTestPar; i++ {
 			testCases = nil
 			RandomStringSlice(testChaos)
 			testCases = append(testCases, testChaos, testChaos, testChaos)
@@ -165,12 +165,12 @@ func LockPar(caseToTest *string) {
 forever:
 	for {
 		select {
-			case lockparchan <- struct{}{}:
-				//log.Printf("OK LockPar %s", *caseToTest)
-				break forever
-			default:
-				time.Sleep(time.Second)
-				//log.Printf("Wait LockPar %s", *caseToTest)
+		case lockparchan <- struct{}{}:
+			//log.Printf("OK LockPar %s", *caseToTest)
+			break forever
+		default:
+			time.Sleep(time.Second)
+			//log.Printf("Wait LockPar %s", *caseToTest)
 		}
 	}
 } // end func LockPar
@@ -187,7 +187,6 @@ func RandomStringSlice(slice []string) {
 		slice[i], slice[j] = slice[j], slice[i]
 	})
 } // end func RandomStringSlice
-
 
 func RandomStringSlices(slices [][]string) {
 	for _, slice := range slices {
@@ -259,27 +258,36 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 
 		switch use_format {
 		case "wireformat":
-			article.Head = []byte(strings.Join(headerLines, "\r\n")) // wireformat
-			article.Body = []byte(strings.Join(bodyLines, "\r\n"))   // wireformat
+			head := []byte(strings.Join(headerLines, "\r\n")) // wireformat
+			body := []byte(strings.Join(bodyLines, "\r\n"))   // wireformat
+			article.Head = &head
+			article.Headsize = len(head)
+			article.Body = &body
+			article.Bodysize = len(body)
 		case "fileformat":
-			article.Head = []byte(strings.Join(headerLines, "\n")) // fileformat
-			article.Body = []byte(strings.Join(bodyLines, "\n"))   // fileformat
+			head := []byte(strings.Join(headerLines, "\n")) // fileformat
+			body := []byte(strings.Join(bodyLines, "\n"))   // fileformat
+			article.Head = &head
+			article.Headsize = len(head)
+			article.Body = &body
+			article.Bodysize = len(body)
 		}
 
-		if len(article.Head) == 0 || len(article.Body) == 0 {
-			log.Printf("IGNORE empty head=%d body=%d ", len(article.Head), len(article.Body))
+		if article.Head == nil || article.Body == nil {
+			log.Printf("IGNORE empty head=%v || body=%v ", article.Head, article.Body)
 			continue
 		}
-
 
 		switch caseToTest {
 		case "delete":
 			t_del++
 			delreqs++
-			if delreqs >= 1000 {
-				delreqs = 0
-				log.Printf("Add #%d/%d to Mongo_Delete_queue=%d/%d", t_del, NumIterations, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
-			}
+			/*
+				if delreqs >= 1000 {
+					delreqs = 0
+					log.Printf("Add #%d/%d to Mongo_Delete_queue=%d/%d", t_del, NumIterations, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
+				}
+			*/
 			mongostorage.Mongo_Delete_queue <- messageIDHash
 
 		case "read":
@@ -318,55 +326,44 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 							case mongostorage.NOCOMP:
 								// pass
 							case mongostorage.GZIP_enc:
-								if uncompressedHead, err := mongostorage.DecompressData([]byte(article.Head), mongostorage.GZIP_enc); err != nil {
+								if err := mongostorage.DecompressData(article.Head, mongostorage.GZIP_enc); err != nil {
 									log.Printf("Error GzipUncompress Head returned err: %v", err)
 									continue
-								} else {
-									//log.Printf("OK GzipUncompressed Head")
-									article.Head = uncompressedHead
 								}
 
-								if uncompressedBody, err := mongostorage.DecompressData([]byte(article.Body), mongostorage.GZIP_enc); err != nil {
+								if err := mongostorage.DecompressData(article.Body, mongostorage.GZIP_enc); err != nil {
 									log.Printf("Error GzipUncompress Body returned err: %v", err)
 									continue
-								} else {
-									//log.Printf("OK GzipUncompressed Body")
-									article.Body = uncompressedBody
 								}
 
 							case mongostorage.ZLIB_enc:
-								if uncompressedHead, err := mongostorage.DecompressData([]byte(article.Head), mongostorage.ZLIB_enc); err != nil {
+								if err := mongostorage.DecompressData(article.Head, mongostorage.ZLIB_enc); err != nil {
 									log.Printf("Error ZlibUncompress Head returned err: %v", err)
 									continue
-								} else {
-									//log.Printf("OK ZlibUncompressed Head")
-									article.Head = uncompressedHead
 								}
 
-								if uncompressedBody, err := mongostorage.DecompressData([]byte(article.Body), mongostorage.ZLIB_enc); err != nil {
+								if err := mongostorage.DecompressData(article.Body, mongostorage.ZLIB_enc); err != nil {
 									log.Printf("Error ZlibUncompress Body returned err: %v", err)
 									continue
-								} else {
-									//log.Printf("OK ZlibUncompressed Body")
-									article.Body = uncompressedBody
 								}
 
 							} // end switch encoder
 
 							got_read++
 							t_get++
-							//log.Printf("testCase: 'read' got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", got_read, len(articles), string(article.Head), string(article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
-							//
-							if got_read >= 1000 {
-								log.Printf("testCase: 'read' got_read=%d/%d", t_get, len(articles), *article.MessageIDHash, article.Found, article.Enc)
-								got_read = 0
-							}
+							log.Printf("testCase: 'read' got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", got_read, len(articles), string(*article.Head), string(*article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
+							/*
+								if got_read >= 100 {
+									log.Printf("testCase: 'read' got_read=%d/%d", t_get, len(articles), *article.MessageIDHash, article.Found, article.Enc)
+									got_read = 0
+								}*/
 						} else {
 							t_nf++
 							not_found++
-							if not_found >= 1000 {
+							//log.Printf("testCase: 'read' not_found=%d/%d hash=%s a.found=%t", t_nf, len(articles), *article.MessageIDHash, article.Found)
+							if not_found >= 100 {
 								not_found = 0
-								log.Printf("testCase: 'read' not_found=%d/%d hash=%s a.found=%t", t_nf, len(articles), *article.MessageIDHash, article.Found)
+								log.Printf("testCase: 'read' not_found=%d len_articles=%d", t_nf, len(articles))
 							}
 						}
 					} // for article := range articles
@@ -379,8 +376,6 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 			t_ins++
 			//log.Printf("Add #%d to Mongo_Insert_queue=%d/%d", insreqs, len(mongostorage.Mongo_Insert_queue), cap(mongostorage.Mongo_Insert_queue))
 			//log.Printf("insert (caseToTest=%s): %s", caseToTest, article.MessageIDHash)
-			article.Headsize = len(article.Head)
-			article.Bodysize = len(article.Body)
 			article.Enc = mongostorage.NOCOMP
 			mongostorage.Mongo_Insert_queue <- article
 
@@ -388,52 +383,34 @@ func TestArticles(NumIterations uint64, caseToTest string, use_format string, ch
 			// Inserts the article into MongoDB with gzip compression
 			insreqs++
 			t_ins++
-			var err error
-			var compressedHead []byte
-			var compressedBody []byte
-			if compressedHead, err = mongostorage.CompressData([]byte(article.Head), mongostorage.GZIP_enc); err != nil {
+			if err := mongostorage.CompressData(article.Head, mongostorage.GZIP_enc); err != nil {
 				log.Printf("Error GzipCompress Head returned err: %v", err)
 				continue
 			}
-			if compressedBody, err = mongostorage.CompressData([]byte(article.Body), mongostorage.GZIP_enc); err != nil {
+			if err := mongostorage.CompressData(article.Body, mongostorage.GZIP_enc); err != nil {
 				log.Printf("Error GzipCompress Body returned err: %v", err)
 				continue
 			}
-			//log.Printf("Head raw=%d gzip=%d Body raw=%d gzip=%d msghash=%s", len(article.Head), len(compressedHead), len(article.Body), len(compressedBody), *article.MessageIDHash)
-			//log.Printf("", )
-			article.Head = compressedHead
-			article.Headsize = len(compressedHead)
-			article.Body = compressedBody
-			article.Bodysize = len(compressedBody)
 			article.Enc = mongostorage.GZIP_enc
 			//log.Printf("insert (caseToTest=%s): %s", caseToTest, )
 			mongostorage.Mongo_Insert_queue <- article
-			//mongostorage.Mongo_Delete_queue <- article.MessageIDHash
 
 		case "zlib":
 			// Inserts the article into MongoDB with zlib compression
 			insreqs++
 			t_ins++
-			var err error
-			var compressedHead []byte
-			var compressedBody []byte
-			if compressedHead, err = mongostorage.CompressData([]byte(article.Head), mongostorage.ZLIB_enc); err != nil {
+			if err := mongostorage.CompressData(article.Head, mongostorage.ZLIB_enc); err != nil {
 				log.Printf("Error ZlibCompress Head returned err='%v'", err)
 				continue
 			}
-			if compressedBody, err = mongostorage.CompressData([]byte(article.Body), mongostorage.ZLIB_enc); err != nil {
+			if err := mongostorage.CompressData(article.Body, mongostorage.ZLIB_enc); err != nil {
 				log.Printf("Error ZlibCompress Body returned err='%v'", err)
 				continue
 			}
 			//log.Printf("Head raw=%d gzip=%d Body raw=%d gzip=%d msghash=%s", len(article.Head), len(compressedHead), len(article.Body), len(compressedBody), *article.MessageIDHash)
-			article.Head = compressedHead
-			article.Headsize = len(compressedHead)
-			article.Body = compressedBody
-			article.Bodysize = len(compressedBody)
 			article.Enc = mongostorage.ZLIB_enc
 			//log.Printf("insert (caseToTest=%s): %s", caseToTest, *article.MessageIDHash)
 			mongostorage.Mongo_Insert_queue <- article
-			//mongostorage.Mongo_Delete_queue <- article.MessageIDHash
 
 		default:
 			log.Fatalf("Invalid case to test: %s", caseToTest)
