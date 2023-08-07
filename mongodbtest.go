@@ -101,13 +101,13 @@ func main() {
 	// load mongodb storage
 	cfg := mongostorage.GetDefaultMongoStorageConfig()
 
-	cfg.DelQueue = 10
+	cfg.DelQueue = 1000000
 	cfg.DelWorker = 1
-	cfg.DelBatch = 2
+	cfg.DelBatch = 231
 
-	cfg.InsQueue = 10
+	cfg.InsQueue = 1
 	cfg.InsWorker = 1
-	cfg.InsBatch = 100
+	cfg.InsBatch = 131
 	cfg.TestAfterInsert = false
 
 	cfg.GetQueue = 10
@@ -174,18 +174,21 @@ wait:
 	for {
 		time.Sleep(time.Second)
 		if (len(pardonechan) == flagTestPar) || (flagTestPar <= 1 && len(pardonechan) == cap(pardonechan)) {
-			r := mongostorage.Counter.Get("Did_mongoWorker_Reader")
-			i := mongostorage.Counter.Get("Did_mongoWorker_Insert")
-			d := mongostorage.Counter.Get("Did_mongoWorker_Delete")
-			sum := r + i + d
+			r_did := mongostorage.Counter.Get("Did_mongoWorker_Reader")
+			i_did := mongostorage.Counter.Get("Did_mongoWorker_Insert")
+			d_did := mongostorage.Counter.Get("Did_mongoWorker_Delete")
+			r_bad := mongostorage.Counter.Get("Bad_mongoWorker_Reader")
+			i_bad := mongostorage.Counter.Get("Bad_mongoWorker_Insert")
+			d_bad := mongostorage.Counter.Get("Bad_mongoWorker_Delete")
+			sum := r_did + i_did + d_did + r_bad + i_bad + d_bad
 			if sum == target {
-				log.Printf("Test completed: %d/%d r=%d i=%d d=%d target=%d", len(pardonechan), cap(pardonechan), r, i, d, target)
+				log.Printf("Test completed: done=%d/%d r=%d/%d i=%d/%d d=%d/%d target=%d", len(pardonechan), cap(pardonechan), r_did, r_bad, i_did, i_bad, d_did, d_bad, target)
 				break wait
 			}
-			log.Printf("Waiting for Test to complete: %d/%d r=%d i=%d d=%d target=%d/%d", len(pardonechan), cap(pardonechan), r, i, d, sum, target)
+			log.Printf("Waiting for Test to complete: done=%d/%d r=%d/%d i=%d/%d d=%d/%d target=%d/%d r_q=%d i_q=%d d_q=%d", len(pardonechan), cap(pardonechan), r_did, r_bad, i_did, i_bad, d_did, d_bad, sum, target, len(mongostorage.Mongo_Reader_queue), len(mongostorage.Mongo_Insert_queue), len(mongostorage.Mongo_Delete_queue))
 			continue wait
 		}
-		log.Printf("Waiting for Test to complete: %d/%d flagTestPar=%d", len(pardonechan), cap(pardonechan), flagTestPar)
+		log.Printf("Waiting for Test to complete: done=%d/%d flagTestPar=%d", len(pardonechan), cap(pardonechan), flagTestPar)
 	} // end for
 
 	log.Printf("Closing mongodbtest")
@@ -287,12 +290,12 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 
 			t_del++
 			delreqs++
-			if delreqs >= 1000 {
+			if delreqs >= 100000 {
 				delreqs = 0
 				log.Printf("j=%d) Add #%d/%d to Mongo_Delete_queue=%d/%d", id, t_del, NumIterations, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
 			}
+			// spammy log.Printf("j=%d) Add #%d to Mongo_Delete_queue=%d/%d", id, t_del, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
 
-			log.Printf("j=%d) Add #%d to Mongo_Delete_queue=%d/%d", id, t_del, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
 			// *?* passing a RetChan to delete request makes it somehow slower
 			// *?* with RetChan and batchsize > 1: you have to wait for flushtimer or batchsize getting full
 			delreq := mongostorage.MongoDelRequest{
@@ -312,11 +315,11 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 		case "read":
 			//DEBUGSLEEP()
 			getreqs++
-			if getreqs >= 1000 {
+			if getreqs >= 100000 {
 				getreqs = 0
 				log.Printf("j=%d) testCase: 'read' t_get=%d t_nf=%d itrerations=%d", id, t_get, t_nf, NumIterations)
 			}
-			log.Printf("j=%d) Add #%d to Mongo_Reader_queue=%d/%d", id, getreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
+			// spammy log.Printf("j=%d) Add #%d to Mongo_Reader_queue=%d/%d", id, getreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
 
 			getreq := mongostorage.MongoGetRequest{
 				Msgidhashes: []*string{&messageIDHash},
@@ -328,7 +331,7 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 			// pass pointer to get request to Mongo_Reader_queue
 			mongostorage.Mongo_Reader_queue <- &getreq
 
-			log.Printf("j=%d) read waiting for reply on RetChan q=%d", id, len(mongostorage.Mongo_Reader_queue))
+			logf(DEBUG, "j=%d) read waiting for reply on RetChan q=%d", id, len(mongostorage.Mongo_Reader_queue))
 			select {
 			case articles, ok := <-get_retchan:
 				if !ok {
@@ -369,11 +372,11 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 							} // end switch Enc decoder
 							got_read++
 							t_get++
-							log.Printf("j=%d) testCase: 'read' t_get=%d got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", id, t_get, got_read, len(articles), string(*article.Head), string(*article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
+							logf(DEBUG, "j=%d) testCase: 'read' t_get=%d got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", id, t_get, got_read, len(articles), string(*article.Head), string(*article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
 						} else {
 							t_nf++
 							not_found++
-							log.Printf("j=%d) testCase: 'read' t_nf=%d articles_not_found=%d/%d hash=%s a.found=%t", id, t_nf, not_found, len(articles), *article.MessageIDHash, article.Found)
+							logf(DEBUG, "j=%d) testCase: 'read' t_nf=%d articles_not_found=%d/%d hash=%s a.found=%t", id, t_nf, not_found, len(articles), *article.MessageIDHash, article.Found)
 						}
 					} // for article := range articles
 				} // end if len(articles)
