@@ -49,7 +49,7 @@ func main() {
 		runtime.GOMAXPROCS(flagNumCPU)
 	}
 	flagNumIterations = uint64(iflagNumIterations)
-	logf(DEBUG, "flagNumIterations=%d", flagNumIterations)
+	log.Printf("flagNumIterations=%d flagTestPar=%d", flagNumIterations, flagTestPar)
 	lockparchan = make(chan struct{}, flagTestPar)
 
 	// Define supported test cases
@@ -80,12 +80,12 @@ func main() {
 
 	// capture the flag
 	if validTestCase && testCase != "" {
-		logf(DEBUG, "Running '%s' test case...", testCase)
+		log.Printf("Running '%s' test case...", testCase)
 		testCases = [][]string{}
 		testCases = append(testCases, []string{testCase})
 
 	} else {
-		logf(DEBUG, "Running '%s' test case...", testCases)
+		log.Printf("Running '%s' test case...", testCases)
 	}
 
 	lockparchansize := 0
@@ -149,8 +149,8 @@ func main() {
 		// single threaded test with defined 'testCases'
 		for _, testRun := range testCases {
 			log.Printf("single testRun='%v'", testRun)
-			//DEBUGSLEEP()
 			for _, caseToTest := range testRun {
+				DEBUGSLEEP()
 				if flagNumIterations > 0 {
 					target += flagNumIterations
 					log.Printf("Start caseToTest=%s flagNumIterations=%d", caseToTest, flagNumIterations)
@@ -176,7 +176,7 @@ wait:
 				log.Printf("Test completed: %d/%d r=%d i=%d d=%d target=%d", len(pardonechan), cap(pardonechan), r, i, d, target)
 				break wait
 			}
-			log.Printf("Waiting for Test to complete: %d/%d r=%d i=%d d=%d target=%d/%d", len(pardonechan), flagTestPar, r, i, d, sum, target)
+			log.Printf("Waiting for Test to complete: %d/%d r=%d i=%d d=%d target=%d/%d", len(pardonechan), cap(pardonechan), r, i, d, sum, target)
 			continue wait
 		}
 		log.Printf("Waiting for Test to complete: %d/%d flagTestPar=%d", len(pardonechan), cap(pardonechan), flagTestPar)
@@ -214,8 +214,8 @@ wait:
 func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, checkAfterInsert bool) {
 	LockPar(&caseToTest)
 	defer UnLockPar(&caseToTest)
-	logf(DEBUG, "TestArticles() run test: case '%s'", caseToTest)
-	defer logf(DEBUG, "TestArticles() end test: case '%s'", caseToTest)
+	log.Printf("TestArticles() run test: case '%s'", caseToTest)
+	defer log.Printf("TestArticles() end test: case '%s'", caseToTest)
 
 	insreqs, delreqs, getreqs := 0, 0, 0
 	t_get, t_ins, t_del, t_nf := 0, 0, 0, 0
@@ -265,12 +265,12 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 
 
 		if article.Head == nil || article.Headsize <= 0 {
-			logf(DEBUG, "IGNORE empty head=%v size=%d", article.Head, article.Headsize)
+			log.Printf("IGNORE empty head=%v size=%d", article.Head, article.Headsize)
 			continue
 		}
 
 		if article.Body == nil || article.Bodysize <= 0 {
-			logf(DEBUG, "IGNORE empty body=%v size=%d", article.Body, article.Bodysize)
+			log.Printf("IGNORE empty body=%v size=%d", article.Body, article.Bodysize)
 			continue
 		}
 
@@ -284,10 +284,10 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 			delreqs++
 			if delreqs >= 1000 {
 				delreqs = 0
-				logf(DEBUG, "Add #%d/%d to Mongo_Delete_queue=%d/%d", t_del, NumIterations, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
+				log.Printf("Add #%d/%d to Mongo_Delete_queue=%d/%d", t_del, NumIterations, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
 			}
 
-			logf(DEBUG, "Add #%d to Mongo_Delete_queue=%d/%d", t_del, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
+			log.Printf("Add #%d to Mongo_Delete_queue=%d/%d", t_del, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
 			// *?* passing a RetChan to delete request makes it somehow slower
 			// *?* with RetChan and batchsize > 1: you have to wait for flushtimer or batchsize getting full
 			delreq := mongostorage.MongoDelRequest{
@@ -302,16 +302,16 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 			mongostorage.Mongo_Delete_queue <- &delreq
 
 			// *?* deleted := <- del_retchan
-			// *?* logf(DEBUG, "Test DELETE sent=%d, deleted=%d", len(delreq.Msgidhashes), deleted)
+			// *?* log.Printf("Test DELETE sent=%d, deleted=%d", len(delreq.Msgidhashes), deleted)
 
 		case "read":
 			//DEBUGSLEEP()
 			getreqs++
 			if getreqs >= 1000 {
 				getreqs = 0
-				logf(DEBUG, "testCase: 'read' t_get=%d t_nf=%d itrerations=%d", t_get, t_nf, NumIterations)
+				log.Printf("testCase: 'read' t_get=%d t_nf=%d itrerations=%d", t_get, t_nf, NumIterations)
 			}
-			logf(DEBUG, "Add #%d to Mongo_Reader_queue=%d/%d", getreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
+			log.Printf("Add #%d to Mongo_Reader_queue=%d/%d", getreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
 
 			getreq := mongostorage.MongoGetRequest{
 				Msgidhashes: []*string{&messageIDHash},
@@ -323,14 +323,14 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 			// pass pointer to get request to Mongo_Reader_queue
 			mongostorage.Mongo_Reader_queue <- &getreq
 
-			logf(DEBUG, "read waiting for reply on RetChan q=%d", len(mongostorage.Mongo_Reader_queue))
+			log.Printf("read waiting for reply on RetChan q=%d", len(mongostorage.Mongo_Reader_queue))
 			select {
 			case articles, ok := <-get_retchan:
 				if !ok {
-					logf(DEBUG, "INFO getreq.retchan has been closed")
+					log.Printf("INFO getreq.retchan has been closed")
 				}
 				if len(articles) == 0 {
-					logf(DEBUG, "testCase: 'read' empty reply from retchan hash='%s'", *article.MessageIDHash)
+					log.Printf("testCase: 'read' empty reply from retchan hash='%s'", *article.MessageIDHash)
 				} else {
 					got_read := 0
 					not_found := 0
@@ -341,34 +341,34 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 								// pass
 							case mongostorage.GZIP_enc:
 								if err := mongostorage.DecompressData(article.Head, mongostorage.GZIP_enc); err != nil {
-									logf(DEBUG, "GzipUncompress Head returned err: %v", err)
+									log.Printf("GzipUncompress Head returned err: %v", err)
 									continue
 								}
 
 								if err := mongostorage.DecompressData(article.Body, mongostorage.GZIP_enc); err != nil {
-									logf(DEBUG, "GzipUncompress Body returned err: %v", err)
+									log.Printf("GzipUncompress Body returned err: %v", err)
 									continue
 								}
 
 							case mongostorage.ZLIB_enc:
 								if err := mongostorage.DecompressData(article.Head, mongostorage.ZLIB_enc); err != nil {
-									logf(DEBUG, "ZlibUncompress Head returned err: %v", err)
+									log.Printf("ZlibUncompress Head returned err: %v", err)
 									continue
 								}
 
 								if err := mongostorage.DecompressData(article.Body, mongostorage.ZLIB_enc); err != nil {
-									logf(DEBUG, "ZlibUncompress Body returned err: %v", err)
+									log.Printf("ZlibUncompress Body returned err: %v", err)
 									continue
 								}
 
 							} // end switch Enc decoder
 							got_read++
 							t_get++
-							logf(DEBUG, "testCase: 'read' t_get=%d got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", t_get, got_read, len(articles), string(*article.Head), string(*article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
+							log.Printf("testCase: 'read' t_get=%d got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", t_get, got_read, len(articles), string(*article.Head), string(*article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
 						} else {
 							t_nf++
 							not_found++
-							logf(DEBUG, "testCase: 'read' t_nf=%d articles_not_found=%d/%d hash=%s a.found=%t", t_nf, not_found, len(articles), *article.MessageIDHash, article.Found)
+							log.Printf("testCase: 'read' t_nf=%d articles_not_found=%d/%d hash=%s a.found=%t", t_nf, not_found, len(articles), *article.MessageIDHash, article.Found)
 						}
 					} // for article := range articles
 				} // end if len(articles)
@@ -381,9 +381,9 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 			t_ins++
 			if insreqs >= 1000 {
 				insreqs = 0
-				logf(DEBUG, "testCase: '%s' t_ins=%d/%d", caseToTest, t_ins, NumIterations)
+				log.Printf("testCase: '%s' t_ins=%d/%d", caseToTest, t_ins, NumIterations)
 			}
-			logf(DEBUG, "caseToTest=%s Add #%d to Mongo_Insert_queue=%d/%d", caseToTest, t_ins, len(mongostorage.Mongo_Insert_queue), cap(mongostorage.Mongo_Insert_queue))
+			log.Printf("caseToTest=%s Add #%d to Mongo_Insert_queue=%d/%d", caseToTest, t_ins, len(mongostorage.Mongo_Insert_queue), cap(mongostorage.Mongo_Insert_queue))
 			article.Enc = mongostorage.NOCOMP
 			mongostorage.Mongo_Insert_queue <- &article
 
@@ -393,22 +393,22 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 			// Inserts the article into MongoDB with gzip compression
 			insreqs++
 			t_ins++
-			logf(DEBUG, "caseToTest=%s BEFORE GZIP Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
+			log.Printf("caseToTest=%s BEFORE GZIP Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
 			if err := mongostorage.CompressData(article.Head, mongostorage.GZIP_enc); err != nil {
-				logf(DEBUG, "GzipCompress Head returned err: %v", err)
+				log.Printf("GzipCompress Head returned err: %v", err)
 				continue
 			}
 			if err := mongostorage.CompressData(article.Body, mongostorage.GZIP_enc); err != nil {
-				logf(DEBUG, "GzipCompress Body returned err: %v", err)
+				log.Printf("GzipCompress Body returned err: %v", err)
 				continue
 			}
-			logf(DEBUG, "caseToTest=%s AFTER GZIP Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
+			log.Printf("caseToTest=%s AFTER GZIP Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
 			article.Enc = mongostorage.GZIP_enc
 			// pass pointer to insert gzip request to Mongo_Reader_queue
 			mongostorage.Mongo_Insert_queue <- &article
 			if insreqs >= 1000 {
 				insreqs = 0
-				logf(DEBUG, "testCase: '%s' t_ins=%d", caseToTest, t_ins)
+				log.Printf("testCase: '%s' t_ins=%d", caseToTest, t_ins)
 			}
 
 		case "zlib":
@@ -416,22 +416,22 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 			// Inserts the article into MongoDB with zlib compression
 			insreqs++
 			t_ins++
-			logf(DEBUG, "caseToTest=%s BEFORE ZLIB Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
+			log.Printf("caseToTest=%s BEFORE ZLIB Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
 			if err := mongostorage.CompressData(article.Head, mongostorage.ZLIB_enc); err != nil {
-				logf(DEBUG, "ZlibCompress Head returned err='%v'", err)
+				log.Printf("ZlibCompress Head returned err='%v'", err)
 				continue
 			}
 			if err := mongostorage.CompressData(article.Body, mongostorage.ZLIB_enc); err != nil {
-				logf(DEBUG, "ZlibCompress Body returned err='%v'", err)
+				log.Printf("ZlibCompress Body returned err='%v'", err)
 				continue
 			}
-			logf(DEBUG, "caseToTest=%s AFTER ZLIB Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
+			log.Printf("caseToTest=%s AFTER ZLIB Headsize=%d Bodysize=%d hash=%s", caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
 			article.Enc = mongostorage.ZLIB_enc
 			// pass pointer to insert zlib request to Mongo_Reader_queue
 			mongostorage.Mongo_Insert_queue <-&article
 			if insreqs >= 1000 {
 				insreqs = 0
-				logf(DEBUG, "testCase: '%s' t_ins=%d", caseToTest, t_ins)
+				log.Printf("testCase: '%s' t_ins=%d", caseToTest, t_ins)
 			}
 
 		default:
@@ -479,11 +479,11 @@ forever:
 	for {
 		select {
 		case lockparchan <- struct{}{}:
-			//logf(DEBUG, "OK LockPar %s", *caseToTest)
+			//log.Printf("OK LockPar %s", *caseToTest)
 			break forever
 		default:
 			time.Sleep(time.Second)
-			//logf(DEBUG, "Wait LockPar %s", *caseToTest)
+			//log.Printf("Wait LockPar %s", *caseToTest)
 		}
 	}
 } // end func LockPar
@@ -491,5 +491,5 @@ forever:
 func UnLockPar(caseToTest *string) {
 	<-lockparchan
 	pardonechan <- struct{}{}
-	//logf(DEBUG, "UnLockPar %s", *caseToTest)
+	//log.Printf("UnLockPar %s", *caseToTest)
 } //end func UnLockPar
