@@ -401,13 +401,17 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 			insreqs++
 			t_ins++
 			log.Printf("j=%d) caseToTest=%s BEFORE GZIP Headsize=%d Bodysize=%d hash=%s", id, caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
-			if err := mongostorage.CompressData(article.Head, mongostorage.GZIP_enc); err != nil {
+			if err, newsize := mongostorage.CompressData(article.Head, mongostorage.GZIP_enc); err != nil {
 				log.Printf("j=%d) GzipCompress Head returned err: %v", id, err)
 				continue
+			} else {
+				article.Headsize = newsize
 			}
-			if err := mongostorage.CompressData(article.Body, mongostorage.GZIP_enc); err != nil {
+			if err, newsize := mongostorage.CompressData(article.Body, mongostorage.GZIP_enc); err != nil {
 				log.Printf("j=%d) GzipCompress Body returned err: %v", id, err)
 				continue
+			} else {
+				article.Bodysize = newsize
 			}
 			log.Printf("j=%d) caseToTest=%s AFTER GZIP Headsize=%d Bodysize=%d hash=%s", id, caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
 			article.Enc = mongostorage.GZIP_enc
@@ -424,13 +428,17 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 			insreqs++
 			t_ins++
 			log.Printf("j=%d) caseToTest=%s BEFORE ZLIB Headsize=%d Bodysize=%d hash=%s", id, caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
-			if err := mongostorage.CompressData(article.Head, mongostorage.ZLIB_enc); err != nil {
+			if err, newsize := mongostorage.CompressData(article.Head, mongostorage.ZLIB_enc); err != nil {
 				log.Printf("j=%d) ZlibCompress Head returned err='%v'", id, err)
 				continue
+			} else {
+				article.Headsize = newsize
 			}
-			if err := mongostorage.CompressData(article.Body, mongostorage.ZLIB_enc); err != nil {
+			if err, newsize := mongostorage.CompressData(article.Body, mongostorage.ZLIB_enc); err != nil {
 				log.Printf("j=%d) ZlibCompress Body returned err='%v'", id, err)
 				continue
+			} else {
+				article.Bodysize = newsize
 			}
 			log.Printf("j=%d) caseToTest=%s AFTER ZLIB Headsize=%d Bodysize=%d hash=%s", id, caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
 			article.Enc = mongostorage.ZLIB_enc
