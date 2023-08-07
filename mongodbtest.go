@@ -38,7 +38,7 @@ func main() {
 
 	flag.StringVar(&flagTestCase, "test-case", "", "Test cases: delete|read|no-compression|gzip|zlib")
 	flag.StringVar(&flagFormat, "format", "wireformat", "[wireformat|fileformat]")
-	flag.IntVar(&iflagNumIterations, "test-num", 0, "Test Num: Any number >= 0 you want")
+	flag.IntVar(&iflagNumIterations, "test-num", 10, "Test Num: Any number >= 0 you want")
 	flag.IntVar(&flagTestPar, "test-par", 1, "Test Parallel: Any number > 0 you want")
 	flag.IntVar(&flagNumCPU, "num-cpu", 0, "sets runtime.GOMAXPROCS")
 	flag.BoolVar(&flagRandomUpDN, "randomUpDN", false, "set flag '-randomUpDN' to test randomUpDN() function")
@@ -136,7 +136,7 @@ func main() {
 			log.Printf("run %d/%d testCases='%v'", i, flagTestPar, testCases)
 			for _, testRun := range testCases {
 				log.Printf("parallel testRun='%v'", testRun)
-				DEBUGSLEEP()
+				//DEBUGSLEEP()
 				for _, caseToTest := range testRun {
 					if flagNumIterations > 0 {
 						target += flagNumIterations
@@ -148,8 +148,8 @@ func main() {
 	} else {
 		// single threaded test with defined 'testCases'
 		for _, testRun := range testCases {
-			logf(DEBUG, "single testRun='%v'", testRun)
-			DEBUGSLEEP()
+			log.Printf("single testRun='%v'", testRun)
+			//DEBUGSLEEP()
 			for _, caseToTest := range testRun {
 				if flagNumIterations > 0 {
 					target += flagNumIterations
@@ -173,7 +173,7 @@ wait:
 			d := mongostorage.Counter.Get("Did_mongoWorker_Delete")
 			sum := r + i + d
 			if sum == target {
-				log.Printf("Test completed: %d/%d r=%d i=%d d=%d target=%d", len(pardonechan), flagTestPar, r, i, d, target)
+				log.Printf("Test completed: %d/%d r=%d i=%d d=%d target=%d", len(pardonechan), cap(pardonechan), r, i, d, target)
 				break wait
 			}
 			log.Printf("Waiting for Test to complete: %d/%d r=%d i=%d d=%d target=%d/%d", len(pardonechan), flagTestPar, r, i, d, sum, target)
@@ -212,7 +212,6 @@ wait:
 // reports any errors that occur during the insertion or deletion process.
 // function partly written by AI.
 func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, checkAfterInsert bool) {
-	time.Sleep(time.Second)
 	LockPar(&caseToTest)
 	defer UnLockPar(&caseToTest)
 	logf(DEBUG, "TestArticles() run test: case '%s'", caseToTest)
