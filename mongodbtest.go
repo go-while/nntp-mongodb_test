@@ -49,12 +49,7 @@ func main() {
 	}
 	flagNumIterations = uint64(iflagNumIterations)
 	log.Printf("flagNumIterations=%d", flagNumIterations)
-	chansize := flagTestPar
-	if chansize == 0 {
-		chansize = 1
-	}
-	lockparchan = make(chan struct{}, chansize)
-	pardonechan = make(chan struct{}, chansize)
+	lockparchan = make(chan struct{}, flagTestPar)
 
 	// Define supported test cases
 	supportedTestCases := []string{"delete", "read", "no-compression", "gzip", "zlib"}
@@ -91,6 +86,15 @@ func main() {
 	} else {
 		log.Printf("Running '%s' test case...", testCases)
 	}
+
+	lockparchansize := 0
+	for _, cases := range testCases {
+		for _, _ = range cases {
+			lockparchansize++
+		}
+	}
+	log.Printf("make pardonechan=%d", lockparchansize)
+	pardonechan = make(chan struct{}, lockparchansize)
 	DEBUGSLEEP()
 	TESTMongoDatabaseName := "nntp_TEST" // mongosh: use nntp_TEST; db.articles.drop();
 
@@ -98,16 +102,16 @@ func main() {
 	cfg := mongostorage.GetDefaultMongoStorageConfig()
 
 	cfg.DelQueue = 10
-	cfg.DelWorker = 5
-	cfg.DelBatch = 100
+	cfg.DelWorker = 1
+	cfg.DelBatch = 2
 
 	cfg.InsQueue = 10
-	cfg.InsWorker = 5
+	cfg.InsWorker = 1
 	cfg.InsBatch = 100
 	cfg.TestAfterInsert = false
 
 	cfg.GetQueue = 10
-	cfg.GetWorker = 5
+	cfg.GetWorker = 1
 
 	cfg.FlushTimer = 1000
 
@@ -131,6 +135,8 @@ func main() {
 			RandomStringSlices(testCases)
 			log.Printf("run %d/%d testCases='%v'", i, flagTestPar, testCases)
 			for _, testRun := range testCases {
+				log.Printf("single testRun='%v'", testRun)
+				DEBUGSLEEP()
 				for _, caseToTest := range testRun {
 					if flagNumIterations > 0 {
 						target += flagNumIterations
@@ -142,20 +148,26 @@ func main() {
 	} else {
 		// single threaded test with defined 'testCases'
 		for _, testRun := range testCases {
+			log.Printf("single testRun='%v'", testRun)
+			DEBUGSLEEP()
 			for _, caseToTest := range testRun {
 				if flagNumIterations > 0 {
 					target += flagNumIterations
 					log.Printf("Start caseToTest=%s flagNumIterations=%d", caseToTest, flagNumIterations)
 					TestArticles(flagNumIterations, caseToTest, flagFormat, cfg.TestAfterInsert)
+					log.Printf("End caseToTest=%s flagNumIterations=%d", caseToTest, flagNumIterations)
 				}
-			} //emd for
+			} //end for
 		} // end for
 	} // end if flagTestPar
 
+log.Printf("wait to finish")
+
 wait:
+
 	for {
 		time.Sleep(time.Second)
-		if ( len(pardonechan) == flagTestPar ) || ( flagTestPar == 0 && len(pardonechan) == 1 ) {
+		if ( len(pardonechan) == flagTestPar ) || ( flagTestPar <= 1 && len(pardonechan) == cap(pardonechan) ) {
 			r := mongostorage.Counter.Get("Did_mongoWorker_Reader")
 			i := mongostorage.Counter.Get("Did_mongoWorker_Insert")
 			d := mongostorage.Counter.Get("Did_mongoWorker_Delete")
@@ -167,7 +179,7 @@ wait:
 			log.Printf("Waiting for Test to complete: %d/%d r=%d i=%d d=%d target=%d/%d", len(pardonechan), flagTestPar, r, i, d, sum, target)
 			continue wait
 		}
-		log.Printf("Waiting for Test to complete: %d/%d", len(pardonechan), flagTestPar)
+		log.Printf("Waiting for Test to complete: %d/%d flagTestPar=%d", len(pardonechan), cap(pardonechan), flagTestPar)
 	} // end for
 
 	log.Printf("Closing mongodbtest")
@@ -203,8 +215,8 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 	time.Sleep(time.Second)
 	LockPar(&caseToTest)
 	defer UnLockPar(&caseToTest)
-	log.Printf("run test: case '%s'", caseToTest)
-	defer log.Printf("end test: case '%s'", caseToTest)
+	log.Printf("TestArticles() run test: case '%s'", caseToTest)
+	defer log.Printf("TestArticles() end test: case '%s'", caseToTest)
 
 	insreqs, delreqs, getreqs := 0, 0, 0
 	t_get, t_ins, t_del, t_nf := 0, 0, 0, 0
@@ -263,6 +275,7 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 			continue
 		}
 
+		flagTestAdditional := false
 
 		switch caseToTest {
 		case "delete":
@@ -275,15 +288,17 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 				log.Printf("Add #%d/%d to Mongo_Delete_queue=%d/%d", t_del, NumIterations, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
 			}
 
-			logf(DEBUG, "Add #%d to Mongo_Delete_queue=%d/%d", getreqs, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
+			logf(DEBUG, "Add #%d to Mongo_Delete_queue=%d/%d", t_del, len(mongostorage.Mongo_Delete_queue), cap(mongostorage.Mongo_Delete_queue))
 			// *?* passing a RetChan to delete request makes it somehow slower
 			// *?* with RetChan and batchsize > 1: you have to wait for flushtimer or batchsize getting full
 			delreq := mongostorage.MongoDelRequest{
-				Msgidhashes: []*string{&messageIDHash, &hash2, &hash3},
+				Msgidhashes: []*string{&messageIDHash},
 				//RetChan:     del_retchan,
 			}
+			if flagTestAdditional {
+				delreq.Msgidhashes = []*string{&messageIDHash, &hash2, &hash3}
+			}
 
-			//delreq.Msgidhashes = append(delreq.Msgidhashes,
 			// pass pointer to del request to Mongo_Reader_queue
 			mongostorage.Mongo_Delete_queue <- &delreq
 
@@ -300,13 +315,16 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 			logf(DEBUG, "Add #%d to Mongo_Reader_queue=%d/%d", getreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
 
 			getreq := mongostorage.MongoGetRequest{
-				Msgidhashes: []*string{&messageIDHash, &hash2, &hash3},
+				Msgidhashes: []*string{&messageIDHash},
 				RetChan:     get_retchan,
+			}
+			if flagTestAdditional {
+				getreq.Msgidhashes = []*string{&messageIDHash, &hash2, &hash3}
 			}
 			// pass pointer to get request to Mongo_Reader_queue
 			mongostorage.Mongo_Reader_queue <- &getreq
 
-			//log.Printf("read waiting for reply on RetChan q=%d", len(mongostorage.Mongo_Reader_queue))
+			log.Printf("read waiting for reply on RetChan q=%d", len(mongostorage.Mongo_Reader_queue))
 			select {
 			case articles, ok := <-get_retchan:
 				if !ok {
@@ -344,7 +362,7 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 									continue
 								}
 
-							} // end switch encoder
+							} // end switch Enc decoder
 							got_read++
 							t_get++
 							logf(DEBUG, "testCase: 'read' t_get=%d got_read=%d/%d head='%s' body='%s' msgid='%s' hash=%s a.found=%t enc=%d", t_get, got_read, len(articles), string(*article.Head), string(*article.Body), *article.MessageID, *article.MessageIDHash, article.Found, article.Enc)
@@ -419,12 +437,12 @@ func TestArticles(NumIterations uint64, caseToTest string, flagFormat string, ch
 
 		default:
 			log.Fatalf("Invalid case to test: %s", caseToTest)
-		} // ens switch caseToTest
+		} // end switch caseToTest
 	}
 } // end func TestArticles
 
 
-func DEBUGSLEEP() { time.Sleep(time.Second) }
+func DEBUGSLEEP() { time.Sleep(time.Second*1) }
 
 // function written by AI.
 func hashMessageID(messageID string) string {
