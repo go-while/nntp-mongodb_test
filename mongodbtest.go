@@ -143,6 +143,9 @@ func main() {
 						target += flagNumIterations
 						id++
 						go TestArticles(id, flagNumIterations, caseToTest, flagFormat, cfg.TestAfterInsert)
+						// this launches a lot of go routines in the background for every appended testcase
+						// possibly much more than allowed in -test-par, so many will block
+						// and execution is randomized as possible
 					}
 				} // end for
 			} // end for
