@@ -134,9 +134,9 @@ func main() {
 			RandomStringSlice(testChaos)
 			testCases = append(testCases, testChaos, testChaos, testChaos)
 			RandomStringSlices(testCases)
-			log.Printf("run %d/%d testCases='%v'", i, flagTestPar, testCases)
+			log.Printf("parallel run %d/%d testCases='%v'", i, flagTestPar, testCases)
 			for _, testRun := range testCases {
-				log.Printf("parallel testRun='%v'", testRun)
+				log.Printf("parallel run %d) testRun='%v'", i, testRun)
 				//DEBUGSLEEP()
 				for _, caseToTest := range testRun {
 					if flagNumIterations > 0 {
