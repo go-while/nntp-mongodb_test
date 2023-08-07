@@ -242,7 +242,7 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 		messageID := fmt.Sprintf("<example-%d@example.com>", i)
 		messageIDHash := hashMessageID(messageID)
 
-		headerLines := []string{
+		headLines := []string{
 			"From: John Doe <johndoe@example.com>",
 			"Newsgroups: golang, misc.test",
 			"Subject: Example Usenet Article",
@@ -269,8 +269,11 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 			MessageID:     &messageID,
 		}
 
-		article.Head, article.Headsize = mongostorage.Strings2Byte(flagFormat, headerLines)
+		article.Head, article.Headsize = mongostorage.Strings2Byte(flagFormat, headLines)
 		article.Body, article.Bodysize = mongostorage.Strings2Byte(flagFormat, bodyLines)
+
+		//log.Printf("DEBUG head_X='%x'\n\nhead_S='%s'", *article.Head, *article.Head)
+		//log.Printf("DEBUG body_X='%x'\n\nbody_S='%s'", *article.Body, *article.Body)
 
 		if article.Head == nil || article.Headsize <= 0 {
 			log.Printf("IGNORE empty head=%v size=%d", article.Head, article.Headsize)
@@ -400,7 +403,8 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 			// Inserts the article into MongoDB with gzip compression
 			insreqs++
 			t_ins++
-			log.Printf("j=%d) caseToTest=%s BEFORE GZIP Headsize=%d Bodysize=%d hash=%s", id, caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
+			//s1, s2 :=  article.Headsize,  article.Bodysize
+			//log.Printf("j=%d) caseToTest=%s BEFORE GZIP Headsize=%d Bodysize=%d hash=%s", id, caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
 			if err, newsize := mongostorage.CompressData(article.Head, mongostorage.GZIP_enc); err != nil {
 				log.Printf("j=%d) GzipCompress Head returned err: %v", id, err)
 				continue
@@ -413,7 +417,8 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 			} else {
 				article.Bodysize = newsize
 			}
-			log.Printf("j=%d) caseToTest=%s AFTER GZIP Headsize=%d Bodysize=%d hash=%s", id, caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
+			//diff1, diff2 := s1-article.Headsize, s2-article.Bodysize
+			//log.Printf("j=%d) caseToTest=%s AFTER GZIP Headsize=%d s1=%d diff1=%d Bodysize=%d s2=%d diff2=%d hash=%s", id, caseToTest, article.Headsize, s1, diff1, article.Bodysize, s2, diff2, *article.MessageIDHash)
 			article.Enc = mongostorage.GZIP_enc
 			// pass pointer to insert gzip request to Mongo_Reader_queue
 			mongostorage.Mongo_Insert_queue <- &article
@@ -427,7 +432,8 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 			// Inserts the article into MongoDB with zlib compression
 			insreqs++
 			t_ins++
-			log.Printf("j=%d) caseToTest=%s BEFORE ZLIB Headsize=%d Bodysize=%d hash=%s", id, caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
+			//s1, s2 :=  article.Headsize,  article.Bodysize
+			//log.Printf("j=%d) caseToTest=%s BEFORE ZLIB Headsize=%d Bodysize=%d hash=%s", id, caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
 			if err, newsize := mongostorage.CompressData(article.Head, mongostorage.ZLIB_enc); err != nil {
 				log.Printf("j=%d) ZlibCompress Head returned err='%v'", id, err)
 				continue
@@ -440,7 +446,8 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 			} else {
 				article.Bodysize = newsize
 			}
-			log.Printf("j=%d) caseToTest=%s AFTER ZLIB Headsize=%d Bodysize=%d hash=%s", id, caseToTest, article.Headsize, article.Bodysize, *article.MessageIDHash)
+			//diff1, diff2 := s1-article.Headsize, s2-article.Bodysize
+			//log.Printf("j=%d) caseToTest=%s AFTER ZLIB Headsize=%d s1=%d diff1=%d Bodysize=%d s2=%d diff2=%d hash=%s", id, caseToTest, article.Headsize, s1, diff1, article.Bodysize, s2, diff2, *article.MessageIDHash)
 			article.Enc = mongostorage.ZLIB_enc
 			// pass pointer to insert zlib request to Mongo_Reader_queue
 			mongostorage.Mongo_Insert_queue <- &article
