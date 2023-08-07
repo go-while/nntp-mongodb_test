@@ -59,7 +59,11 @@ The test program will perform the following steps:
    - "gzip": Insert articles with gzip compression.
    - "zlib": Insert articles with zlib compression.
 
-5. Log details for each step, including the raw size of the article, the size after compression (if applicable), whether the article was inserted or read successfully, and the content of the article when the "read" test case is chosen.
+- Log details for each step:
+- including the raw size of the article
+- the size after compression (if applicable)
+- whether the article was inserted or read successfully
+- and the content of the article when the "read" test case is chosen.
 ```
 
 
