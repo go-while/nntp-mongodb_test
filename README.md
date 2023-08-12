@@ -37,8 +37,8 @@ To run the test program, execute the compiled binary:
 
 # Test Cases
 The test program supports the following test cases:
- - "read": Tests article retrieval from the MongoDB collection based on the given MessageIDHash.
- - "delete": Tests article deletion from the MongoDB collection based on the given MessageIDHash.
+ - "read": Tests article retrieval from the MongoDB collection based on the given MessageID.
+ - "delete": Tests article deletion from the MongoDB collection based on the given MessageID.
  - "no-compression": Inserts articles without any compression.
  - "gzip": Inserts articles with gzip compression.
  - "zlib": Inserts articles with zlib compression.
@@ -51,21 +51,29 @@ The test program will perform the following steps:
 ```
 1. Load MongoDB storage with the default configurations.
 2. Iterate over the specified number of inserts (default: 5000000).
-3. For each insert, generate an example article with a unique MessageID and MessageIDHash.
+3. For each insert, generate an example article with a unique MessageID and MessageID.
 4. Perform different actions based on the specified test case:
-   - "read": Read existing articles with the given MessageIDHash.
-   - "delete": Delete existing articles with the given MessageIDHash.
+   - "read": Read existing articles with the given MessageID.
+   - "delete": Delete existing articles with the given MessageID.
    - "no-compression": Insert articles without any compression.
    - "gzip": Insert articles with gzip compression.
    - "zlib": Insert articles with zlib compression.
 ```
 
+# compression tests at level 3:
+ - negative diff: compression not effective
+```bash
 
+j=9) caseToTest=gzip AFTER GZIP Headsize=178 s1=176 diff1=-2 Bodysize=95 s2=84 diff2=-11
+j=9) caseToTest=gzip AFTER GZIP Headsize=177 s1=176 diff1=-1 Bodysize=95 s2=84 diff2=-11
 
-# ChatGPT Review Logical Considerations
+j=15) caseToTest=zlib AFTER ZLIB Headsize=166 s1=176 diff1=10 Bodysize=83 s2=84 diff2=1
+j=15) caseToTest=zlib AFTER ZLIB Headsize=165 s1=176 diff1=11 Bodysize=83 s2=84 diff2=1
 
-Hash Collisions: The code generates SHA256 hashes of message IDs, but it does not explicitly handle potential hash collisions.
+j=21) caseToTest=flate AFTER FLATE Headsize=155 s1=176 diff1=21 Bodysize=72 s2=84 diff2=12
+j=21) caseToTest=flate AFTER FLATE Headsize=154 s1=176 diff1=22 Bodysize=72 s2=84 diff2=12
 
+```
 
 # Disclaimer
 
