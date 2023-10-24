@@ -65,18 +65,21 @@ func main() {
 	}
 	testCases := [][]string{}
 	testRun00 := []string{"read", "delete", "no-compression", "read", "delete", "read"}
-	testRun01 := []string{"read", "delete", "gzip", "read", "delete", "read"}
-	testRun02 := []string{"read", "delete", "zlib", "read", "delete", "read"}
-	testRun03 := []string{"read", "delete", "flate", "read", "delete", "read"}
+	//testRun01 := []string{"read", "delete", "gzip", "read", "delete", "read"}
+	//testRun02 := []string{"read", "delete", "zlib", "read", "delete", "read"}
+	//testRun03 := []string{"read", "delete", "flate", "read", "delete", "read"}
 	testChaos := []string{"read", "delete", "zlib", "gzip", "flate", "no-compression", "delete", "delete", "delete"}
 	//testRun1 := []string{"delete", "no-compression", "read", "delete", "gzip", "read", "delete", "zlib", "read"}
 	//testRun2 := []string{"delete", "read", "delete", "read"}
 	//testRun3 := []string{"delete", "read", "no-compression", "read", "read", "read"}
 	//testRun4 := []string{"read", "delete", "no-compression", "read", "read", "delete", "read"}
-	//testCases = append(testCases, testRun00)
+
+	testCases = append(testCases, testRun00)
+	testChaos = testRun00
+
 	//testCases = append(testCases, testRun01)
 	//testCases = append(testCases, testRun02)
-	testCases = append(testCases, testRun00, testRun01, testRun02, testRun03)
+	//testCases = append(testCases, testRun00, testRun01, testRun02, testRun03)
 	//testCases = append(testCases, testRun00, testRun01, testRun02, testRun1, testRun2, testRun3, testRun4)
 
 	// capture the flag
@@ -266,8 +269,8 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 
 		// Create the Article.
 		article := mongostorage.MongoArticle{
-			MessageID: &messageID,
-			Hash:     &messageIDhash,
+			MessageID: messageID,
+			Hash:     messageIDhash,
 		}
 
 		article.Head, article.Headsize = mongostorage.Strings2Byte(flagFormat, headLines)
@@ -303,11 +306,11 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 			// *?* passing a RetChan to delete request makes it somehow slower
 			// *?* with RetChan and batchsize > 1: you have to wait for flushtimer or batchsize getting full
 			delreq := mongostorage.MongoDelRequest{
-				MessageIDs: []*string{&messageID},
+				MessageIDs: []string{messageID},
 				//RetChan:     del_retchan,
 			}
 			if flagTestAdditional {
-				delreq.MessageIDs = []*string{&messageID, &hash2, &hash3}
+				delreq.MessageIDs = []string{messageID, hash2, hash3}
 			}
 
 			// pass pointer to del request to Mongo_Reader_queue
@@ -326,11 +329,11 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 			// spammy log.Printf("j=%d) Add #%d to Mongo_Reader_queue=%d/%d", id, getreqs, len(mongostorage.Mongo_Reader_queue), cap(mongostorage.Mongo_Reader_queue))
 
 			getreq := mongostorage.MongoGetRequest{
-				MessageIDs: []*string{&messageID},
+				MessageIDs: []string{messageID},
 				RetChan:     get_retchan,
 			}
 			if flagTestAdditional {
-				getreq.MessageIDs = []*string{&messageID, &hash2, &hash3}
+				getreq.MessageIDs = []string{messageID, hash2, hash3}
 			}
 			// pass pointer to get request to Mongo_Reader_queue
 			mongostorage.Mongo_Reader_queue <- &getreq
@@ -342,7 +345,7 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 					log.Printf("INFO getreq.retchan has been closed")
 				}
 				if len(articles) == 0 {
-					log.Printf("j=%d) testCase: 'read' empty reply from retchan hash='%s'", id, *article.MessageID)
+					log.Printf("j=%d) testCase: 'read' empty reply from retchan hash='%s'", id, article.MessageID)
 				} else {
 					got_read := 0
 					not_found := 0
@@ -387,11 +390,11 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 							} // end switch Enc decoder
 							got_read++
 							t_get++
-							logf(DEBUG, "j=%d) testCase: 'read' t_get=%d got_read=%d/%d head='%s' body='%s' messageID='%s' hash=%s a.found=%t enc=%d", id, t_get, got_read, len(articles), string(*article.Head), string(*article.Body), *article.MessageID, *article.MessageID, article.Found, article.Enc)
+							logf(DEBUG, "j=%d) testCase: 'read' t_get=%d got_read=%d/%d head='%s' body='%s' messageID='%s' hash=%s a.found=%t enc=%d", id, t_get, got_read, len(articles), string(article.Head), string(article.Body), article.MessageID, article.MessageID, article.Found, article.Enc)
 						} else {
 							t_nf++
 							not_found++
-							logf(DEBUG, "j=%d) testCase: 'read' t_nf=%d articles_not_found=%d/%d hash=%s a.found=%t", id, t_nf, not_found, len(articles), *article.MessageID, article.Found)
+							logf(DEBUG, "j=%d) testCase: 'read' t_nf=%d articles_not_found=%d/%d hash=%s a.found=%t", id, t_nf, not_found, len(articles), article.MessageID, article.Found)
 						}
 					} // for article := range articles
 				} // end if len(articles)
@@ -431,7 +434,7 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 				article.Bodysize = newsize
 			}
 			diff1, diff2 := s1-article.Headsize, s2-article.Bodysize
-			log.Printf("j=%d) caseToTest=%s AFTER GZIP Headsize=%d s1=%d diff1=%d Bodysize=%d s2=%d diff2=%d hash=%s", id, caseToTest, article.Headsize, s1, diff1, article.Bodysize, s2, diff2, *article.MessageID)
+			log.Printf("j=%d) caseToTest=%s AFTER GZIP Headsize=%d s1=%d diff1=%d Bodysize=%d s2=%d diff2=%d hash=%s", id, caseToTest, article.Headsize, s1, diff1, article.Bodysize, s2, diff2, article.MessageID)
 			article.Enc = mongostorage.GZIP_enc
 			// pass pointer to insert gzip request to Mongo_Reader_queue
 			mongostorage.Mongo_Insert_queue <- &article
@@ -461,7 +464,7 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 				article.Bodysize = newsize
 			}
 			diff1, diff2 := s1-article.Headsize, s2-article.Bodysize
-			log.Printf("j=%d) caseToTest=%s AFTER ZLIB Headsize=%d s1=%d diff1=%d Bodysize=%d s2=%d diff2=%d hash=%s", id, caseToTest, article.Headsize, s1, diff1, article.Bodysize, s2, diff2, *article.MessageID)
+			log.Printf("j=%d) caseToTest=%s AFTER ZLIB Headsize=%d s1=%d diff1=%d Bodysize=%d s2=%d diff2=%d hash=%s", id, caseToTest, article.Headsize, s1, diff1, article.Bodysize, s2, diff2, article.MessageID)
 			article.Enc = mongostorage.ZLIB_enc
 			// pass pointer to insert zlib request to Mongo_Reader_queue
 			mongostorage.Mongo_Insert_queue <- &article
@@ -491,7 +494,7 @@ func TestArticles(id int, NumIterations uint64, caseToTest string, flagFormat st
 				article.Bodysize = newsize
 			}
 			diff1, diff2 := s1-article.Headsize, s2-article.Bodysize
-			log.Printf("j=%d) caseToTest=%s AFTER FLATE Headsize=%d s1=%d diff1=%d Bodysize=%d s2=%d diff2=%d hash=%s", id, caseToTest, article.Headsize, s1, diff1, article.Bodysize, s2, diff2, *article.MessageID)
+			log.Printf("j=%d) caseToTest=%s AFTER FLATE Headsize=%d s1=%d diff1=%d Bodysize=%d s2=%d diff2=%d hash=%s", id, caseToTest, article.Headsize, s1, diff1, article.Bodysize, s2, diff2, article.MessageID)
 			article.Enc = mongostorage.FLATE_enc
 			// pass pointer to insert flate request to Mongo_Reader_queue
 			mongostorage.Mongo_Insert_queue <- &article
